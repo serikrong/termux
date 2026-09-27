@@ -1,4 +1,3 @@
-clear
 pkg update -y && \
 pkg upgrade -y && \
 pkg install -y php mariadb zip unzip && \
@@ -70,16 +69,3 @@ SQL
 fi && \
 grep -qxF 'bash ~/start.sh' "$HOME/.bashrc" 2>/dev/null || \
 echo 'bash ~/start.sh' >> "$HOME/.bashrc"
-
-clear
-
-echo "== Termuk Settings ==*
-echo "PHP      : OK"
-echo "MariaDB  : OK"
-echo "ZIP      : OK"
-echo "UNZIP    : OK"
-echo "Storage  : OK"
-echo "Start.sh : OK"
-echo "Server   : OK"
-echo ""
-echo "OK FINISH."
