@@ -72,6 +72,7 @@ echo 'bash ~/start.sh' >> "$HOME/.bashrc"
 
 clear
 
+echo "== Termuk Settings ==*
 echo "PHP      : OK"
 echo "MariaDB  : OK"
 echo "ZIP      : OK"
@@ -81,3 +82,4 @@ echo "Start.sh : OK"
 echo "Server   : OK"
 echo ""
 echo "OK FINISH."
+echo "Line: mrSeri"
