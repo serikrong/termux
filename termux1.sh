@@ -83,3 +83,6 @@ echo "Server   : OK"
 echo ""
 echo "OK FINISH."
 echo "Line: mrSeri"
+
+sleep 3 
+exit
