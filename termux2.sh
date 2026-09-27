@@ -1,6 +1,7 @@
 clear
-echo "== Termuk Settings ====================="
+echo "== Termux Settings ====================="
 echo ""
+
 pkg update -y && \
 pkg upgrade -y && \
 pkg install -y php mariadb zip unzip && \
@@ -42,6 +43,26 @@ if ! pgrep -x mariadbd >/dev/null 2>&1 && ! pgrep -x mysqld >/dev/null 2>&1; the
         sleep 1
     done
 fi
+
+TERMUX_VERSION="$(pkg show termux-tools 2>/dev/null | awk '/^Version:/ {print $2; exit}')"
+PHP_VERSION="$(php -r 'echo PHP_VERSION;' 2>/dev/null)"
+MARIADB_VERSION="$(mariadb --version 2>/dev/null | sed -n 's/.*Distrib \([^, ]*\).*/\1/p')"
+ZIP_VERSION="$(zip -v 2>/dev/null | sed -n '1s/.*Zip \([^ ]*\).*/\1/p')"
+UNZIP_VERSION="$(unzip -v 2>/dev/null | sed -n '1s/.*UnZip \([^ ]*\).*/\1/p')"
+
+clear
+
+echo "==============================="
+echo "Web Server 2026"
+echo "==============================="
+echo "(1) Termux  $TERMUX_VERSION"
+echo "(2) PHP     $PHP_VERSION"
+echo "(3) MariaDB $MARIADB_VERSION"
+echo "(4) Zip     $ZIP_VERSION"
+echo "(5) Unzip   $UNZIP_VERSION"
+echo "==============================="
+echo "by mr.Seri | Line: mrSeri"
+echo "==============================="
 
 cd "$WEB" || exit 1
 
