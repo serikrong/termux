@@ -1,3 +1,4 @@
+clear
 pkg update -y && \
 pkg upgrade -y && \
 pkg install -y php mariadb zip unzip && \
@@ -80,7 +81,7 @@ echo "Storage  : OK"
 echo "Start.sh : OK"
 echo "Server   : OK"
 echo ""
-echo "OK FINISH."
+echo "OK FINISH.XXX"
 
 sleep 3
 exit
