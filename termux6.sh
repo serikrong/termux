@@ -1,4 +1,5 @@
 clear
+echo "== Termuk Settings ====================="
 pkg update -y && \
 pkg upgrade -y && \
 pkg install -y php mariadb zip unzip && \
@@ -71,6 +72,8 @@ if ! grep -qxF 'bash ~/start.sh' "$HOME/.bashrc" 2>/dev/null; then
     echo 'bash ~/start.sh' >> "$HOME/.bashrc"
 fi
 
+echo "== Waiting ========================"
+
 clear
 
 echo "PHP      : OK"
@@ -84,5 +87,5 @@ echo ""
 echo "OK FINISH."
 echo "by Mr.Seri | Line: mrSeri | Tel.095-682-0142"
 
-sleep 5
+sleep 3
 exit
