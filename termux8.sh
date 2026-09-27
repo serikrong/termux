@@ -73,8 +73,6 @@ if ! grep -qxF 'bash ~/start.sh' "$HOME/.bashrc" 2>/dev/null; then
     echo 'bash ~/start.sh' >> "$HOME/.bashrc"
 fi
 
-echo "== Waiting ========================"
-
 clear
 
 echo "PHP      : OK"
@@ -88,5 +86,6 @@ echo ""
 echo "OK FINISH."
 echo "by Mr.Seri | Line: mrSeri | Tel.095-682-0142"
 
+rm -f "$HOME/$FILE"
 sleep 3
 exit
