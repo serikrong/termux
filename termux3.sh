@@ -82,6 +82,4 @@ echo "Start.sh : OK"
 echo "Server   : OK"
 echo ""
 echo "OK FINISH.xxx"
-
-sleep 3
 exit
