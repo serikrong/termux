@@ -48,7 +48,6 @@ exec php \
 -d sys_temp_dir="$TMP" \
 -S 0.0.0.0:8080
 EOF
-
 chmod +x "$HOME/start.sh" && \
 if ! mariadb-admin -uroot -p112611 ping >/dev/null 2>&1; then \
     mariadbd-safe \
@@ -67,8 +66,9 @@ ALTER USER 'root'@'localhost' IDENTIFIED BY '112611';
 FLUSH PRIVILEGES;
 SQL
 fi && \
-grep -qxF 'bash ~/start.sh' "$HOME/.bashrc" 2>/dev/null || \
-echo 'bash ~/start.sh' >> "$HOME/.bashrc"
+if ! grep -qxF 'bash ~/start.sh' "$HOME/.bashrc" 2>/dev/null; then
+    echo 'bash ~/start.sh' >> "$HOME/.bashrc"
+fi
 
 clear
 
@@ -81,3 +81,6 @@ echo "Start.sh : OK"
 echo "Server   : OK"
 echo ""
 echo "OK FINISH."
+
+sleep 3
+exit
