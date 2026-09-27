@@ -1,5 +1,6 @@
 clear
 echo "== Termuk Settings ====================="
+echo ""
 pkg update -y && \
 pkg upgrade -y && \
 pkg install -y php mariadb zip unzip && \
