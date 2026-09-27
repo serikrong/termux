@@ -28,6 +28,10 @@ WEB="/storage/emulated/0/@php"
 TMP="$HOME/tmp"
 MYSQLDATA="$PREFIX/var/lib/mysql"
 
+for i in $(seq 1 20); do
+    rm -f "$HOME/termux${i}.sh"
+done
+
 mkdir -p "$TMP"
 chmod 700 "$TMP"
 
