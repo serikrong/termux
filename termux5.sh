@@ -81,7 +81,8 @@ echo "Storage  : OK"
 echo "Start.sh : OK"
 echo "Server   : OK"
 echo ""
-echo "OK FINISH.xxx"
+echo "OK FINISH."
+echo "by Mr.Seri | Line: mrSeri | Tel.095-682-0142"
 
 sleep 5
 exit
