@@ -83,5 +83,5 @@ echo "Server   : OK"
 echo ""
 echo "OK FINISH.xxx"
 
-sleep 3
+sleep 5
 exit
