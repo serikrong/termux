@@ -1,3 +1,4 @@
+clear
 pkg update -y && \
 pkg upgrade -y && \
 pkg install -y php mariadb zip unzip && \
@@ -84,5 +85,5 @@ echo ""
 echo "OK FINISH."
 echo "Line: mrSeri"
 
-sleep 3 
+sleep 3
 exit
