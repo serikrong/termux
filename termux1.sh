@@ -87,5 +87,4 @@ echo "OK FINISH."
 echo "by Mr.Seri | Line: mrSeri | Tel.095-682-0142"
 
 sleep 3
-rm -f "$HOME/$FILE"
 exit
