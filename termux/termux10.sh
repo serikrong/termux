@@ -4,7 +4,7 @@ echo ""
 
 pkg update -y && \
 pkg upgrade -y && \
-pkg install -y php mariadb zip unzip && \
+pkg install -y php mariadb zip unzip curl && \
 termux-setup-storage <<EOF
 y
 EOF
@@ -66,18 +66,32 @@ echo "(3) MariaDB $MARIADB_VERSION"
 echo "(4) Zip     $ZIP_VERSION"
 echo "(5) Unzip   $UNZIP_VERSION"
 echo "==============================="
-printf '\e]8;;%s\e\\LocalHost: %s\e]8;;\e\\\n' "$URL" "$URL"
+echo "LocalHost: $URL"
 echo "==============================="
 echo "by mr.Seri | Line: mrSeri"
 echo "==============================="
 
 cd "$WEB" || exit 1
 
-exec php \
+php \
 -d opcache.enable=0 \
 -d opcache.enable_cli=0 \
 -d sys_temp_dir="$TMP" \
--S 0.0.0.0:8080
+-S 0.0.0.0:8080 \
+>/dev/null 2>&1 &
+
+PHP_PID=$!
+
+for i in $(seq 1 10); do
+    if curl -s "$URL" >/dev/null 2>&1; then
+        break
+    fi
+    sleep 1
+done
+
+termux-open-url "$URL" >/dev/null 2>&1
+
+wait "$PHP_PID"
 EOF
 chmod +x "$HOME/start.sh" && \
 if ! mariadb-admin -uroot -p112611 ping >/dev/null 2>&1; then \
