@@ -29,11 +29,11 @@ TMP="$HOME/tmp"
 MYSQLDATA="$PREFIX/var/lib/mysql"
 URL="http://localhost:8080/index1.php"
 
-UPDATE_URL="https://raw.githubusercontent.com/serikrong/termux/main/udpate1.sh"
-UPDATE_FILE="$HOME/update1.sh"
+UPDATE_URL="https://raw.githubusercontent.com/serikrong/termux/main/udpate2.sh"
+UPDATE_FILE="$HOME/update2.sh"
 
 # ==================================
-# โหลดและรัน update1.sh ก่อน
+# โหลดและรัน update2.sh ก่อน
 # ==================================
 
 curl -fsSL "$UPDATE_URL" -o "$UPDATE_FILE" || exit 1
