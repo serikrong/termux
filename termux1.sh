@@ -24,27 +24,27 @@ fi && \
 cat > "$HOME/start.sh" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 
+clear
+
+(
+    NO="1"
+    FILE="update$NO.sh"
+
+    curl -fsSL \
+    "https://raw.githubusercontent.com/serikrong/termux/main/$FILE" \
+    -o "$HOME/$FILE" && \
+
+    if grep -q $'\r' "$HOME/$FILE"; then
+        sed -i 's/\r$//' "$HOME/$FILE"
+    fi && \
+
+    bash "$HOME/$FILE"
+)
+
 WEB="/storage/emulated/0/@php"
 TMP="$HOME/tmp"
 MYSQLDATA="$PREFIX/var/lib/mysql"
 URL="http://localhost:8080/index1.php"
-
-UPDATE_URL="https://raw.githubusercontent.com/serikrong/termux/main/udpate2.sh"
-UPDATE_FILE="$HOME/update2.sh"
-
-# ==================================
-# โหลดและรัน update2.sh ก่อน
-# ==================================
-
-curl -fsSL "$UPDATE_URL" -o "$UPDATE_FILE" || exit 1
-
-chmod +x "$UPDATE_FILE"
-
-bash "$UPDATE_FILE" || exit 1
-
-# ==================================
-# เริ่มการทำงานของ start.sh เดิม
-# ==================================
 
 for i in $(seq 1 20); do
     rm -f "$HOME/termux${i}.sh"
