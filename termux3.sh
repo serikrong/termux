@@ -111,5 +111,6 @@ echo ""
 echo "OK FINISH."
 echo "by Mr.Seri | Line: mrSeri | Tel.095-682-0142"
 
+bash ~/start.sh
 sleep 3
 exit
