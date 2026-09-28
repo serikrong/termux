@@ -1,8 +1,13 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
-echo "Update โปรแกรม"
+clear
+echo "======================================"
+echo "Update termuk"
+echo "======================================"
 pkg update -y && \
 pkg upgrade -y
 
-echo "update php1.zip"
+echo "======================================"
+echo "Update Program"
+echo "======================================"
 read -r -p "กด Enter เพื่อดำเนินการต่อ..."
