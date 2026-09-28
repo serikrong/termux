@@ -27,6 +27,7 @@ cat > "$HOME/start.sh" <<'EOF'
 WEB="/storage/emulated/0/@php"
 TMP="$HOME/tmp"
 MYSQLDATA="$PREFIX/var/lib/mysql"
+URL="http://localhost:8080"
 
 for i in $(seq 1 20); do
     rm -f "$HOME/termux${i}.sh"
@@ -64,6 +65,8 @@ echo "(2) PHP     $PHP_VERSION"
 echo "(3) MariaDB $MARIADB_VERSION"
 echo "(4) Zip     $ZIP_VERSION"
 echo "(5) Unzip   $UNZIP_VERSION"
+echo "==============================="
+printf '\e]8;;%s\e\\LocalHost: %s\e]8;;\e\\\n' "$URL" "$URL"
 echo "==============================="
 echo "by mr.Seri | Line: mrSeri"
 echo "==============================="
