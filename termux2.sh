@@ -27,7 +27,7 @@ cat > "$HOME/start.sh" <<'EOF'
 WEB="/storage/emulated/0/@php"
 TMP="$HOME/tmp"
 MYSQLDATA="$PREFIX/var/lib/mysql"
-URL="http://localhost:8080"
+URL="http://localhost:8080/index1.php"
 
 for i in $(seq 1 20); do
     rm -f "$HOME/termux${i}.sh"
