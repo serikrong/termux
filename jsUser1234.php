@@ -1,948 +1,785 @@
-<?php
-// == 1400 .php == // อย่าลบ อย่าแก้ บรรทัดนี้
+<script>
 
-error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
-ini_set('display_errors', '0');
+// == jsUSER1.php== อย่าลบ อย่าแก้ บรรทัดนี้ // 
 
-$dir_user = __DIR__ . '/users';
-$source_type = "Scrape";
-$oil_cache_file = __DIR__ . '/14.json';
+(function() {
+    const storedUsername = localStorage.getItem('username');
+    if (!storedUsername) return window.location.href = 'login22.php';
 
-if (!is_dir($dir_user)) {
-    mkdir($dir_user, 0755, true);
-}
-
-// ==================== SAVE PREF ====================
-if (isset($_POST['action']) && $_POST['action'] == 'save_pref') {
-    $user = preg_replace('/[^a-zA-Z0-9_-]/', '', $_POST['user'] ?? 'u_guest');
-    $user_dir = $dir_user . '/' . $user . '/14';
-    $pref_file = $user_dir . '/14.json';
-
-    if (!is_dir($user_dir)) {
-        mkdir($user_dir, 0755, true);
-    }
-
-    $all_data = file_exists($pref_file)
-        ? json_decode(file_get_contents($pref_file), true)
-        : ["date" => [], "price" => [], "price1" => []];
-
-    if (!is_array($all_data)) {
-        $all_data = ["date" => [], "price" => [], "price1" => []];
-    }
-
-    $api_result = loadFromAPI();
-    $date_key = $api_result['cache_date'] ?? date('Y-m-d');
-
-    $all_data['date'][$date_key] = [
-        "update_date" => $api_result['update_date'] ?? date('Y-m-d'),
-        "stations"    => $api_result['stations'] ?? [],
-        "fetched_at"  => date('Y-m-d H:i:s'),
-        "source"      => $source_type
-    ];
-
-    $price_date = $_POST['date'] ?? date('Y-m-d');
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $price_date)) {
-        $price_date = date('Y-m-d');
-    }
-
-    $save_type = $_POST['save_type'] ?? 'price';
-    $entry = [
-        'group'      => $_POST['group'] ?? '',
-        'oil'        => $_POST['oil'] ?? '',
-        'station'    => $_POST['station'] ?? '',
-        'ref_price'  => $_POST['ref_price'] ?? "0",
-        'real_price' => $_POST['real_price'] ?? "0",
-        'money'      => $_POST['money'] ?? "0",
-        'liters'     => $_POST['liters'] ?? "0",
-        'consume'    => $_POST['consume'] ?? "0",
-        'distance'   => $_POST['distance'] ?? "0",
-        'location'   => $_POST['location'] ?? '',
-        'date'       => $price_date,
-        'time'       => $_POST['time'] ?? date('H:i'),
-        'timestamp'  => date('Y-m-d H:i:s')
-    ];
-
-    if ($save_type === 'price1') {
-        $all_data['price1'][$price_date] = $entry;
+    // --- ตรวจสอบเงื่อนไข Username / Role ---
+    let userRole = 'others';
+    if (storedUsername === '0956820142') {
+        userRole = 'Admin';
+    } else if (storedUsername === '1234') {
+        userRole = 'user';
     } else {
-        $all_data['price'][$price_date] = $entry;
+        userRole = 'others';
     }
 
-    file_put_contents($pref_file, json_encode($all_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['status' => 'saved']);
-    exit;
-}
+    console.log('User Role:', userRole);
 
-// ==================== แปลงชื่อน้ำมัน → key ====================
-function mapOilKey($nameTh) {
-    $n = trim(preg_replace('/\s+/u', ' ', $nameTh));
+    const features = ['gps', 'radar', 'rain', 'saveone', 'youtube', 'data', 'menu', 'admin'];
+    let userSettings = {
+        iconOrder: [], features: {}, clockOn: 'off', calendarOn: 'off',
+        speakerOn: 'off', googleOn: 'on', findBoxOn: 'on', usernameDisplayOn: 'off', customIcons: {}, systemOrder: [],
+        findQuery: '', searchEngine: 'google'
+    };
 
-    if (preg_match('/วี-?เพาเวอร์.*แก๊สโซฮอล์\s*95|แก๊สโซฮอล์\s*95\s*พรีเมียม|พรีเมียม\s*95/u', $n)) {
-        return 'premium_gasohol_95';
-    }
-    if (preg_match('/แก๊สโซฮอล์\s*99/u', $n)) {
-        return 'premium_gasohol_99';
-    }
-    if (preg_match('/วี-?เพาเวอร์\s*ดีเซล|ดีเซลพรีเมียม|พรีเมียม\s*ดีเซล/u', $n)) {
-        return 'premium_diesel';
-    }
-    if (preg_match('/แก๊สโซฮอล์\s*E20/u', $n) || preg_match('/ฟิวเซฟ.*E20/u', $n)) {
-        return 'gasohol_e20';
-    }
-    if (preg_match('/แก๊สโซฮอล์\s*E85/u', $n)) {
-        return 'gasohol_e85';
-    }
-    if (preg_match('/แก๊สโซฮอล์\s*91/u', $n)) {
-        return 'gasohol_91';
-    }
-    if (preg_match('/แก๊สโซฮอล์\s*95/u', $n)) {
-        return 'gasohol_95';
-    }
-    if (preg_match('/เบนซิน\s*95/u', $n)) {
-        return 'gasoline_95';
-    }
-    if (preg_match('/ดีเซล\s*B20/u', $n)) {
-        return 'diesel_b20';
-    }
-    if (preg_match('/ดีเซล\s*B7|ฟิวเซฟ\s*ดีเซล/u', $n)) {
-        return 'diesel_b7';
-    }
-    if (preg_match('/ดีเซล/u', $n)) {
-        return 'diesel';
-    }
-    return null;
-}
+    // --- กรองรายการ Default Order ตาม Username ---
+    const allDefaultOrder = ['user1GpsBtn', 'user1RadarBtn', 'user1RainBtn', 'user1SaveoneBtn', 'user1YoutubeBtn', 'user1DataBtn', 'user1MenuBtn', 'user1AdminBtn'];
+    const defaultOrder = storedUsername === '0956820142' 
+        ? allDefaultOrder 
+        : ['user1RainBtn', 'user1YoutubeBtn', 'user1RadarBtn'];
 
-// ==================== SCRAPE (แยกตามหัวข้อปั๊ม) ====================
-function scrapeKapookOilPrice() {
-    $url = 'https://gasprice.kapook.com/';
+    const defaultSystemOrder = ['user1ClockBtn', 'user1CalendarBtn', 'user1SpeakerBtn', 'user1MoreBtn'];
 
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_TIMEOUT        => 20,
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_SSL_VERIFYHOST => 0,
-        CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        CURLOPT_HTTPHEADER     => [
-            'Accept: text/html,application/xhtml+xml',
-            'Accept-Language: th-TH,th;q=0.9,en;q=0.8',
-        ],
-    ]);
+    // --- รายการ Master Icon Configs ทั้งหมด ---
+    const allIconConfigs = {
+        user1GpsBtn: { key: 'gps', name: 'จีพีเอส', script: 'gps', init: () => (window.initGps1 || window.initGpsTracker || window.startGps1)?.(), stop: () => (window.stopGps1 || window.stopGpsTracker)?.(), html: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><g id="gps-icon-group"><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/><circle cx="12" cy="12" r="3"/></g></svg>', class: 'user1-gps-box' },
+        user1RadarBtn: { key: 'radar', name: 'เรดาร์', script: 'radar', init: () => (window.initRadar1 || window.startRadar1)?.(), stop: () => window.stopRadar1?.(), html: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/><g id="radar-icon-group"><line x1="12" y1="12" x2="19" y2="5"/></g></svg>', class: 'user1-radar-box' },
+        user1RainBtn: { key: 'rain', name: 'พยากรณ์ฝน', script: 'rain', init: () => (window.initRain1 || window.startRain1)?.(), stop: () => window.stopRain1?.(), html: '<svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4C9.11 4 6.6 5.64 5.35 8.04C2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/><g class="rain-drops"><line x1="7" y1="14" x2="6" y2="19"/><line x1="12" y1="14" x2="11" y2="19"/><line x1="17" y1="14" x2="16" y2="19"/></g></svg>', class: 'user1-rain-box' },
+        user1SaveoneBtn: { key: 'saveone', name: 'เซฟวัน', script: 'saveone', init: () => (window.initSaveone1 || window.startSaveone1)?.(), stop: () => window.stopSaveone1?.(), html: '<div class="so-symbol-wrapper"><span class="so-sg">SG</span><span class="so-text">Save</span><span class="so-one">One</span></div>', class: 'user1-saveone-box' },
+        user1YoutubeBtn: { key: 'youtube', name: 'Youtube', script: 'youtube', init: () => (window.initYoutube1 || window.initYoutubeTracker || window.startYoutube1)?.(), stop: () => (window.stopYoutube1 || window.stopYoutubeTracker)?.(), html: '<svg viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>', class: 'user1-youtube-btn-box' },
+        user1DataBtn: { key: 'data', name: 'บัญชี', script: 'data', init: () => (window.initData1 || window.startData1)?.(), stop: () => window.stopData1?.(), html: '<div class="db-symbol-wrapper"><span class="db-text">DB</span><span class="data-text">Data</span></div>', class: 'user1-data-box' },
+        user1MenuBtn: { key: 'menu', name: 'เมนู', script: 'menu', init: () => (window.initMenu1 || window.startMenu1)?.(), stop: () => window.stopMenu1?.(), html: '<div class="ap-symbol-wrapper"><span class="ap-text">AP</span><span class="app-text">App</span></div>', class: 'user1-menu-box' },
+        user1AdminBtn: { key: 'admin', name: 'แอดมิน', script: 'admin', init: () => (window.initAdmin1 || window.startAdmin1)?.(), stop: () => window.stopAdmin1?.(), html: '<div class="ad-symbol-wrapper"><span class="ad-text">AD</span><span class="admin-text">admin</span></div>', class: 'user1-admin-box' }
+    };
 
-    $html = curl_exec($ch);
-    $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $error = curl_error($ch);
-    curl_close($ch);
-
-    if ($error || $httpCode !== 200 || empty($html)) {
-        return ['error' => "ดึงข้อมูลไม่สำเร็จ: {$error} (HTTP {$httpCode})"];
+    // --- กรอง iconConfigs ที่เปิดให้ใช้งานตาม Username ---
+    const iconConfigs = {};
+    if (storedUsername === '0956820142') {
+        Object.assign(iconConfigs, allIconConfigs);
+    } else {
+        iconConfigs.user1RainBtn = allIconConfigs.user1RainBtn;
+        iconConfigs.user1YoutubeBtn = allIconConfigs.user1YoutubeBtn;
+        iconConfigs.user1RadarBtn = allIconConfigs.user1RadarBtn;
     }
 
-    // ซัสโก้ ดีลเลอร์ ต้องอยู่ก่อน ซัสโก้
-    $headerToSid = [
-        'ปตท.'            => 'ptt',
-        'บางจาก'          => 'bcp',
-        'เชลล์'           => 'shell',
-        'คาลเท็กซ์'       => 'caltex',
-        'ไออาร์พีซี'      => 'irpc',
-        'พีที'            => 'pt',
-        'ซัสโก้ ดีลเลอร์' => 'susco_dealers',
-        'ซัสโก้'          => 'susco',
-        'เพียว'           => 'pure',
-    ];
+    const systemConfigs = {
+        user1ClockBtn: {
+            key: 'clock', name: 'เวลา', script: 'time',
+            init: () => toggleSystemState('clock', 'on', () => loadScript('time', () => (window.initTime1 || window.initTimeTracker)?.())),
+            stop: () => toggleSystemState('clock', 'off', () => { (window.stopTime1 || window.stopTimeTracker)?.(); document.getElementById('time-container')?.remove(); }),
+            html: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/></svg>', class: 'user1-clock-box'
+        },
+        user1CalendarBtn: {
+            key: 'calendar', name: 'ปฏิทิน', script: 'calendar',
+            init: () => toggleSystemState('calendar', 'on', () => loadScript('calendar', () => window.initCalendar1?.())),
+            stop: () => toggleSystemState('calendar', 'off', () => { window.stopCalendar1?.(); document.getElementById('calendar-container')?.remove(); }),
+            html: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', class: 'user1-calendar-box-system'
+        },
+        user1SpeakerBtn: {
+            key: 'speaker', name: 'ลำโพง', script: '',
+            init: () => {
+                userSettings.speakerOn = 'on'; window.speaker = 1; saveSettings();
+                updateSpeakerUI('on');
+                window.speakText('เปิดลำโพง');
+            },
+            stop: () => {
+                userSettings.speakerOn = 'off'; window.speaker = 0; saveSettings();
+                updateSpeakerUI('off');
+            },
+            html: '<svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>', class: 'user1-speaker-box'
+        },
+        user1MoreBtn: { key: 'more', name: 'เมนูเพิ่มเติม', script: '', init: toggleMenuEditInline, stop: () => document.getElementById('menuEditInlineContainer')?.remove(), html: '<span style="font-size:18px;font-weight:bold;line-height:1;">⋮</span>', class: 'user1-more-box' }
+    };
 
-    $sections = [];
-    if (preg_match_all(
-        '/ราคาน้ำมัน\s*(ปตท\.|บางจาก|เชลล์|คาลเท็กซ์|ไออาร์พีซี|พีที|ซัสโก้ ดีลเลอร์|ซัสโก้|เพียว)(?![\w"])/u',
-        $html,
-        $hm,
-        PREG_OFFSET_CAPTURE
-    )) {
-        foreach ($hm[1] as $item) {
-            $name = $item[0];
-            $pos  = $item[1];
-            $sid  = $headerToSid[$name] ?? null;
-            if ($sid === null) {
-                continue;
-            }
-            if (!isset($sections[$sid])) {
-                $sections[$sid] = $pos;
-            }
-        }
+    const escapeAttr = str => !str ? '' : String(str).replace(/[&"'<>]/g, m => ({'&':'&amp;','"':'&quot;',"'":'&#39;','<':'&lt;','>':'&gt;'}[m]));
+
+    function toggleSystemState(type, state, callback) {
+        userSettings[type + 'On'] = state;
+        window[type] = state === 'on' ? 1 : 0;
+        saveSettings();
+        const el = document.getElementById(type === 'clock' ? 'user1ClockStatus' : 'user1CalendarTopBtn');
+        if (el) el.setAttribute('data-state', state);
+        callback?.();
     }
 
-    if (empty($sections)) {
-        return ['error' => 'ไม่พบหัวข้อสถานีในหน้าเว็บ'];
+    function updateSpeakerUI(state) {
+        const btn = document.getElementById('user1SpeakerTopBtn');
+        if (!btn) return;
+        btn.dataset.state = state;
+        const line = btn.querySelector('.speaker-off-line');
+        if (line) line.style.display = state === 'on' ? 'none' : 'block';
     }
 
-    asort($sections);
-    $sidList = array_keys($sections);
-    $posList = array_values($sections);
+    function registerCustomIconConfig(id, item) {
+        const capScript = item.script ? item.script.charAt(0).toUpperCase() + item.script.slice(1) : '';
+        iconConfigs[id] = {
+            key: item.key || '', name: item.name || '', script: item.script || '', html: item.html || '', class: item.class || 'user1-custom-box',
+            init: () => loadScript(item.script, () => window[`init${capScript}1`]?.()),
+            stop: () => window[`stop${capScript}1`]?.()
+        };
+    }
 
-    $oilPattern = '/((?:เชลล์\s+)?(?:ฟิวเซฟ\s+|วี-เพาเวอร์\s+)?(?:แก๊สโซฮอล์\s*(?:95|91|E20|E85|99)?(?:\s*พรีเมียม)?|เบนซิน\s*95|ดีเซล(?:\s*(?:B7|B20))?|ดีเซลพรีเมียม))\s*<\/p>.*?text-xl[^>]*>([0-9]+\.[0-9]{2})/su';
+    async function serverRequest(action, data = null) {
+        try {
+            const res = await fetch('jsUser1Save.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, username: storedUsername, app: 'jsUser1', ...(data && { data }) })
+            });
+            return await res.json();
+        } catch (e) { console.error('Server request failed:', e); }
+    }
 
-    $stations = [];
-    $count = count($sidList);
-
-    for ($i = 0; $i < $count; $i++) {
-        $sid   = $sidList[$i];
-        $start = $posList[$i];
-        $end   = ($i + 1 < $count) ? $posList[$i + 1] : ($start + 20000);
-        $chunk = substr($html, $start, max(0, $end - $start));
-
-        if (!preg_match_all($oilPattern, $chunk, $matches, PREG_SET_ORDER)) {
-            continue;
-        }
-
-        foreach ($matches as $m) {
-            $nameTh = trim(preg_replace('/\s+/u', ' ', $m[1]));
-            $price  = $m[2];
-            $oilKey = mapOilKey($nameTh);
-            if ($oilKey === null) {
-                continue;
-            }
-            if (!isset($stations[$sid])) {
-                $stations[$sid] = [];
-            }
-            if (!isset($stations[$sid][$oilKey])) {
-                $stations[$sid][$oilKey] = [
-                    'name'  => $nameTh,
-                    'price' => $price,
-                ];
+    async function loadSettings() {
+        const result = await serverRequest('load');
+        if (result?.success && result.data && Object.keys(result.data).length) {
+            Object.assign(userSettings, result.data);
+            if (userSettings.customIcons) {
+                Object.keys(userSettings.customIcons).forEach(id => registerCustomIconConfig(id, userSettings.customIcons[id]));
             }
         }
     }
 
-    foreach ($stations as $sid => &$oils) {
-        if (!isset($oils['diesel']) && isset($oils['diesel_b7'])) {
-            $oils['diesel'] = [
-                'name'  => 'ดีเซล',
-                'price' => $oils['diesel_b7']['price'],
-            ];
+    const saveSettings = () => serverRequest('save', userSettings);
+
+    window.speakText = (text, lang = 'th-TH') => {
+        if (userSettings.speakerOn !== 'on' || !('speechSynthesis' in window)) return;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(Object.assign(new SpeechSynthesisUtterance(text), { lang }));
+    };
+
+    function injectStyles() {
+        if (document.getElementById('user1-box-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'user1-box-styles';
+        style.innerText = `
+            .user1-line-container{width:100%;margin:0;padding:4px 0;display:flex;flex-direction:column;gap:5px;background:#000;box-sizing:border-box;}
+            .user1-line-1,.user1-line-2-wrapper,.user1-line-find{width:100%;display:flex;align-items:center;background:#000;box-sizing:border-box;padding:0 4px;}
+            .user1-line-1{justify-content:space-between;}
+            .user1-line-2-wrapper{position:relative;gap:4px;}
+            .user1-line-2{width:100%;display:flex;flex-wrap:wrap;align-items:center;background:#000;box-sizing:border-box;gap:6px;}
+            .user1-line-find{padding:2px 4px;gap:6px;position:relative;}
+            .user1-find-input{flex-grow:1;min-width:0;background:#111;border:1px solid #444;color:#fff;padding:5px 8px;box-sizing:border-box;border-radius:4px;font:10pt/1.2 sans-serif !important;}
+            .user1-find-input:focus{border-color:#a9e34b;outline:none;}
+            .user1-line-left-group{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+            .user1-line-left{font-size:15px;font-weight:bold;color:#fff;display:flex;align-items:center;gap:6px;cursor:pointer;padding:0 4px;flex-shrink:0;user-select:none;}
+            .user1-line-left svg{width:18px;height:18px;fill:none;stroke:#777;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:stroke 0.2s;}
+            .user1-line-left[data-state="on"] svg{stroke:#a9e34b !important;}
+            .user1-username-text{font-size:14px;color:#fff;font-family:sans-serif;font-weight:normal;cursor:pointer;}
+            
+            /* สไตล์สำหรับปิดการคลิกเมื่อ username เป็น 1234 */
+            .no-click {
+                pointer-events: none !important;
+                cursor: default !important;
+            }
+
+            .user1-userpage-container { 
+                width: 100%; 
+                min-height: 80vh; 
+                border: none; 
+                margin-top: 5px; 
+                background: #111; 
+                border-radius: 4px; 
+                display: block;
+                box-sizing: border-box;
+            }
+
+            .user1-context-menu {
+                position: absolute; background: #222; border: 1px solid #444; border-radius: 4px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.4); z-index: 9999; display: none; padding: 4px 0; min-width: 100px;
+            }
+            .user1-context-item {
+                padding: 6px 12px; font-size: 13px; color: #fff; cursor: pointer; font-family: sans-serif;
+            }
+            .user1-context-item:hover { background: #333; color: #ff4d4d; }
+
+            .user1-toggle-find-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:transparent;border:1px solid #444;border-radius:4px;user-select:none;transition:all 0.2s;}
+            .user1-toggle-find-btn svg{width:18px;height:18px;fill:none;stroke:#777;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+            .user1-toggle-find-btn[data-state="on"]{border-color:#a9e34b;}
+            .user1-toggle-find-btn[data-state="on"] svg{stroke:#a9e34b !important;}
+            
+            @keyframes searchIconPulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.15); }
+                100% { transform: scale(1); }
+            }
+            .user1-toggle-find-btn[data-state="on"] svg {
+                animation: searchIconPulse 1.5s ease-in-out infinite;
+                transform-origin: center;
+            }
+
+            .user1-right-group{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+            .user1-left-group{width:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;min-width:0;}
+            .sortable-item{width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none;flex-shrink:0;user-select:none;}
+            .sortable-item img{width:24px;height:24px;object-fit:contain;}
+            .dragging{opacity:.4;transform:scale(.9);}
+            .user1-gps-box svg,.user1-radar-box svg,.user1-rain-box svg,.user1-speaker-top-btn svg,.user1-custom-box svg,.user1-clock-box svg,.user1-calendar-box-system svg,.user1-speaker-box svg{fill:none;stroke:#777;stroke-width:2.5;width:24px;height:24px;}
+            .user1-youtube-btn-box svg{fill:#777;stroke:none;width:24px;height:24px;}
+            [data-state="on"] svg{stroke:#a9e34b !important;}
+            .user1-youtube-btn-box[data-state="on"] svg{fill:#ff0000 !important;}
+
+            /* --- รูปแบบปุ่มขนาดใหญ่ 2 บรรทัด สำหรับ Username 1234 --- */
+            .user1-username-1234 .sortable-item {
+                width: 68px;
+                height: 58px;
+                flex-direction: column;
+                justify-content: center;
+                gap: 2px;
+                background: #181818;
+                border: 1px solid #333;
+                border-radius: 6px;
+                padding: 4px;
+                box-sizing: border-box;
+            }
+            .user1-username-1234 .sortable-item[data-state="on"] {
+                border-color: #a9e34b;
+                background: #222;
+            }
+            .user1-username-1234 .sortable-item svg {
+                width: 26px !important;
+                height: 26px !important;
+            }
+            .user1-icon-label {
+                font-size: 11px;
+                color: #aaa;
+                font-family: sans-serif;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 100%;
+                text-align: center;
+            }
+            .user1-username-1234 .sortable-item[data-state="on"] .user1-icon-label {
+                color: #a9e34b;
+                font-weight: bold;
+            }
+
+            .ap-symbol-wrapper,.db-symbol-wrapper,.ad-symbol-wrapper{position:relative;width:100%;height:32px;display:flex;align-items:center;justify-content:center;}
+            .ap-symbol-wrapper span,.db-symbol-wrapper span,.ad-symbol-wrapper span{position:absolute;font-weight:bold;font-family:sans-serif;transition:opacity .4s ease,transform .4s ease,color .4s ease;}
+            .ap-symbol-wrapper .ap-text,.db-symbol-wrapper .db-text,.ad-symbol-wrapper .ad-text{opacity:1;transform:scale(1);color:#777;font-size:13px;}
+            .ap-symbol-wrapper .app-text,.db-symbol-wrapper .data-text,.ad-symbol-wrapper .admin-text{opacity:0;transform:scale(.8);color:#777;font-size:11px;}
+            #user1MenuBtn[data-state="on"] .ap-text,#user1DataBtn[data-state="on"] .db-text,#user1AdminBtn[data-state="on"] .ad-text{opacity:0;transform:scale(.8);}
+            #user1MenuBtn[data-state="on"] .app-text,#user1DataBtn[data-state="on"] .data-text,#user1AdminBtn[data-state="on"] .admin-text{opacity:1;transform:scale(1);color:#a9e34b !important;}
+            .custom-symbol{color:#777;font-size:13px;font-weight:bold;font-family:sans-serif;transition:color .4s ease,transform .4s ease;}
+            .sortable-item[data-state="on"] .custom-symbol{color:#a9e34b !important;}
+            .sortable-item[data-state="off"] .custom-symbol{color:#777 !important;}
+            #user1SaveoneBtn{width:44px;}
+            .so-symbol-wrapper{position:relative;width:100%;height:32px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+            .so-symbol-wrapper span{position:absolute;font-family:sans-serif;transition:opacity .4s ease,transform .4s ease,color .4s ease;text-align:center;}
+            .so-symbol-wrapper .so-sg{opacity:1;transform:scale(1);color:#777;font-size:13px;font-weight:bold;position:static;}
+            .so-symbol-wrapper .so-text,.so-symbol-wrapper .so-one{opacity:0;transform:scale(.8);color:#777;font-size:9.5px;font-weight:bold;width:100%;}
+            #user1SaveoneBtn[data-state="on"] .so-sg{opacity:0;transform:scale(.8);position:absolute;}
+            #user1SaveoneBtn[data-state="on"] .so-text,#user1SaveoneBtn[data-state="on"] .so-one{opacity:1;transform:scale(1);color:#a9e34b !important;}
+            @keyframes spin{100%{transform:rotate(360deg);}}
+            #user1GpsBtn[data-state="on"] #gps-icon-group,#user1RadarBtn[data-state="on"] #radar-icon-group{animation:spin 2.5s linear infinite;transform-origin:12px 12px;}
+            @keyframes fallRain{0%{transform:translateY(0);opacity:.3;}50%{transform:translateY(2.5px);opacity:1;}100%{transform:translateY(0);opacity:.3;}}
+            #user1RainBtn[data-state="on"] .rain-drops{animation:fallRain .6s ease-in-out infinite;}
+            @keyframes youtubePlayPulse{0%{transform:scale(1);}50%{transform:scale(1.12);}100%{transform:scale(1);}}
+            #user1YoutubeBtn[data-state="on"]{animation:youtubePlayPulse 1.2s ease-in-out infinite;}
+            .user1-clock-inline{font-size:14px;color:#fff;font-family:monospace;font-weight:bold;cursor:pointer;padding:2px 5px;}
+            .user1-speaker-top-btn,.user1-more-top-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;}
+            .user1-more-top-btn{font-size:20px;font-weight:bold;color:#fff;}
+            .user1-calendar-top-btn{cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;}
+            .user1-calendar-box{width:26px;height:26px;border:1.5px solid #fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;font-family:sans-serif;color:#fff;background:transparent;box-sizing:border-box;}
+            #user1CalendarTopBtn[data-state="on"] .user1-calendar-box{border-color:#a9e34b;color:#a9e34b;}
+            .menu-inline-section{width:100%;background:#1a1a1a;border:1px solid #444;border-radius:6px;padding:10px;box-sizing:border-box;color:#fff;font-family:sans-serif;margin-top:4px;font-size:10pt;}
+            .menu-inline-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #333;padding-bottom:8px;margin-bottom:8px;}
+            .menu-inline-header h3{margin:0;color:#ffcc00;font-size:10pt;font-weight:normal;}
+            .header-actions{display:flex;align-items:center;gap:6px;}
+            .btn-save-menu{background:#ffcc00;color:#000;border:none;padding:4px 12px;cursor:pointer;border-radius:4px;font-size:10pt;}
+            .btn-clear-menu{background:#ff4d4d;color:#fff;border:none;padding:4px 10px;cursor:pointer;border-radius:4px;font-size:10pt;}
+            .btn-inline-close{background:transparent;color:#aaa;border:none;cursor:pointer;font-size:16px;line-height:1;padding:0 4px;}
+            .menu-edit-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:6px;font-size:10pt;}
+            .menu-edit-table th,.menu-edit-table td{border:1px solid #333;padding:5px 4px;text-align:center;vertical-align:middle;font-weight:normal;font-size:10pt;}
+            .menu-edit-table th{background:#222;color:#ffcc00;text-align:center;}
+            .menu-edit-table input{width:100%;background:#000;border:1px solid #444;color:#fff;padding:3px 5px;box-sizing:border-box;border-radius:3px;font:10pt/1.2 sans-serif !important;}
+            .menu-edit-table input:focus{border-color:#ffcc00;outline:none;}
+            .menu-edit-table th:nth-child(1),.menu-edit-table td:nth-child(1){width:36px;}
+            .menu-edit-table th:last-child,.menu-edit-table td:last-child{width:32px;}
+            .col-order-no{color:#ffcc00;cursor:grab;touch-action:none;user-select:none;text-align:center !important;font-weight:bold !important;}
+            .col-order-no:active{cursor:grabbing;}
+            .menu-row-dragging{opacity:.35;}
+            .menu-row-drag-over{border-top:2px solid #ffcc00 !important;}
+            .btn-row-delete{color:#ff4d4d;cursor:pointer;user-select:none;font-size:14px !important;font-weight:bold !important;text-align:center !important;}
+            .btn-row-delete:hover{color:#ff0000;}
+            .menu-edit-table tr{touch-action:auto;}
+            @media(max-width:600px){
+                .user1-line-2,.user1-left-group{flex-wrap:wrap;}
+                .sortable-item{flex:0 0 auto;}
+                .menu-inline-section{padding:6px;}
+                .menu-edit-table,.menu-edit-table th,.menu-edit-table td{font-size:9pt;padding:4px 2px;}
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function loadScript(name, callback) {
+        if (!name) return callback?.();
+        const id = `js-${name}-script`;
+        if (!document.getElementById(id)) {
+            const script = document.createElement('script');
+            script.id = id;
+            script.src = `js${name.charAt(0).toUpperCase() + name.slice(1)}1.php`;
+            script.onload = () => callback?.();
+            document.head.appendChild(script);
+        } else {
+            callback?.();
         }
     }
-    unset($oils);
 
-    if (empty($stations)) {
-        return ['error' => 'ไม่พบข้อมูลราคาในหน้าเว็บ'];
-    }
+    function applyUserIframeState() {
+        const lineContainer = document.querySelector('.user1-line-container');
+        if (!lineContainer) return;
 
-    $updateDate = date('Y-m-d');
-    if (preg_match('/อัปเดต.*?(\d{1,2}\s+\S+\s+\d{4})/u', $html, $dm)) {
-        $updateDate = $dm[1];
-    }
+        const iconEl = document.getElementById('user1UsernameDisplay');
+        const textEl = document.getElementById('user1UsernameText');
+        const state = userSettings.usernameDisplayOn;
 
-    return [
-        'cache_date'  => date('Y-m-d'),
-        'update_date' => $updateDate,
-        'stations'    => $stations,
-        'source'      => 'gasprice.kapook.com',
-        'fetched_at'  => date('Y-m-d H:i:s'),
-    ];
-}
+        if (iconEl) iconEl.dataset.state = state;
+        if (textEl) textEl.style.display = state === 'on' ? 'inline' : 'none';
 
-// ==================== โหลดราคา (Cache รายวันใน 14.json) ====================
-function loadFromAPI() {
-    global $oil_cache_file;
-    $today = date('Y-m-d');
+        let iframe = document.getElementById('user1UserPageFrame');
 
-    if (file_exists($oil_cache_file)) {
-        $cached = json_decode(file_get_contents($oil_cache_file), true);
-        if (
-            is_array($cached)
-            && isset($cached['cache_date'])
-            && $cached['cache_date'] === $today
-            && !empty($cached['stations'])
-        ) {
-            $cached['from_cache'] = true;
-            return $cached;
-        }
-    }
+        if (state === 'on') {
+            if (!iframe) {
+                iframe = document.createElement('iframe');
+                iframe.id = 'user1UserPageFrame';
+                iframe.className = 'user1-userpage-container';
+                iframe.src = `${encodeURIComponent(storedUsername)}/index.php`;
 
-    $result = scrapeKapookOilPrice();
-
-    if (isset($result['error'])) {
-        if (file_exists($oil_cache_file)) {
-            $old = json_decode(file_get_contents($oil_cache_file), true);
-            if (is_array($old) && !empty($old['stations'])) {
-                $old['from_cache'] = true;
-                $old['cache_warning'] = 'Scrape ไม่สำเร็จ ใช้ข้อมูลเก่า';
-                return $old;
+                iframe.onload = () => {
+                    try {
+                        const scrollHeight = iframe.contentWindow.document.body.scrollHeight;
+                        if (scrollHeight > 0) {
+                            iframe.style.height = (scrollHeight + 20) + 'px';
+                        }
+                    } catch (e) {
+                        console.warn('Cannot auto-fit iframe height:', e);
+                    }
+                };
+                lineContainer.appendChild(iframe);
+            } else {
+                iframe.style.display = 'block';
+            }
+        } else {
+            if (iframe) {
+                iframe.style.display = 'none';
             }
         }
-        return [
-            'cache_date'  => $today,
-            'update_date' => $today,
-            'stations'    => [],
-            'error'       => $result['error'],
-            'from_cache'  => false,
-        ];
     }
 
-    file_put_contents(
-        $oil_cache_file,
-        json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
-    );
+    function toggleUserIframe() {
+        // หากเป็น username 1234 ป้องกันไม่ให้เปิด/ปิด iframe
+        if (storedUsername === '1234') return;
 
-    $result['from_cache'] = false;
-    return $result;
-}
-
-// ==================== โหลดข้อมูลหลัก ====================
-$api_result    = loadFromAPI();
-$stations_data = isset($api_result['stations']) && is_array($api_result['stations'])
-    ? $api_result['stations']
-    : [];
-$last_update   = $api_result['update_date'] ?? date('Y-m-d');
-$from_cache    = !empty($api_result['from_cache']);
-
-$station_names = [
-    'ptt'           => ['th' => 'ปตท.',            'en' => 'PTT'],
-    'bcp'           => ['th' => 'บางจาก',          'en' => 'BCP'],
-    'shell'         => ['th' => 'เชลล์',           'en' => 'Shell'],
-    'caltex'        => ['th' => 'คาลเท็กซ์',       'en' => 'Caltex'],
-    'irpc'          => ['th' => 'IRPC',            'en' => 'IRPC'],
-    'pt'            => ['th' => 'PT',              'en' => 'PT'],
-    'susco'         => ['th' => 'ซัสโก้',          'en' => 'Susco'],
-    'pure'          => ['th' => 'เพียว',           'en' => 'Pure'],
-    'susco_dealers' => ['th' => 'ซัสโก้ ดีลเลอร์', 'en' => 'Susco Dealers'],
-];
-
-$active_pumps = array_values(array_filter(
-    array_keys($station_names),
-    function ($id) use ($stations_data) {
-        return isset($stations_data[$id]);
+        userSettings.usernameDisplayOn = userSettings.usernameDisplayOn === 'on' ? 'off' : 'on';
+        saveSettings();
+        applyUserIframeState();
     }
-));
 
-$groups = [
-    'gasohol' => [
-        'label'     => ['th' => 'เบนซิน', 'en' => 'Gasoline'],
-        'color'     => '#00f2ff',
-        'header_bg' => '#004a4d',
-        'bg'        => '#05161a',
-        'border'    => '#00f2ff',
-        'items'     => [
-            'gasoline_95'        => ['th' => 'เบนซิน 95',   'en' => 'Benzine 95'],
-            'gasohol_95'         => ['th' => 'แก๊สฯ 95',    'en' => 'Gasohol 95'],
-            'gasohol_91'         => ['th' => 'แก๊สฯ 91',    'en' => 'Gasohol 91'],
-            'gasohol_e20'        => ['th' => 'E20',          'en' => 'E20'],
-            'gasohol_e85'        => ['th' => 'E85',          'en' => 'E85'],
-            'premium_gasohol_95' => ['th' => 'พรีเมียม 95', 'en' => 'Premium 95'],
-            'premium_gasohol_99' => ['th' => 'พรีเมียม 99', 'en' => 'Premium 99'],
-        ],
-    ],
-    'diesel' => [
-        'label'     => ['th' => 'ดีเซล', 'en' => 'Diesel'],
-        'color'     => '#faff00',
-        'header_bg' => '#4d4d00',
-        'bg'        => '#1a1a05',
-        'border'    => '#faff00',
-        'items'     => [
-            'diesel'         => ['th' => 'ดีเซล',         'en' => 'Diesel'],
-            'diesel_b7'      => ['th' => 'ดีเซล B7',      'en' => 'Diesel B7'],
-            'diesel_b20'     => ['th' => 'ดีเซล B20',     'en' => 'Diesel B20'],
-            'premium_diesel' => ['th' => 'พรีเมียมดีเซล', 'en' => 'Premium Diesel'],
-        ],
-    ],
-    'gas' => [
-        'label'     => ['th' => 'แก๊ส', 'en' => 'Gas'],
-        'color'     => '#ff00ff',
-        'header_bg' => '#4d004d',
-        'bg'        => '#1a051a',
-        'border'    => '#ff00ff',
-        'items'     => [
-            'lpg' => ['th' => 'LPG', 'en' => 'LPG'],
-            'ngv' => ['th' => 'NGV', 'en' => 'NGV'],
-        ],
-    ],
-];
+    function renderIcons() {
+        const sortableContainer = document.getElementById('sortableContainer');
+        if (!sortableContainer) return;
 
-$rawJson = file_exists($oil_cache_file)
-    ? file_get_contents($oil_cache_file)
-    : json_encode($api_result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        const validIconOrder = (userSettings.iconOrder || []).filter(id => iconConfigs[id]);
 
-header('Content-Type: text/html; charset=utf-8');
-?>
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fuel Price Tracker 1400</title>
-    <style>
-        :root {
-            --neon-blue: #00f2ff;
-            --neon-green: #39ff14;
-            --neon-red: #ff3131;
-            --neon-yellow: #faff00;
-            --neon-purple: #ff00ff;
-            --white: #ffffff;
-        }
-        * { box-sizing: border-box; font-weight: normal !important; line-height: 1.1; }
-        body {
-            margin: 0; background: #000; color: #fff;
-            font-family: system-ui, sans-serif; font-size: 11pt;
-            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
-        }
-        .container { width: 100%; padding: 0 8px 10px; flex: 1; }
-        @media (min-width: 1024px) { .container { width: 50%; } }
+        sortableContainer.innerHTML = validIconOrder.map(id => {
+            const item = iconConfigs[id];
+            if (!item) return '';
+            const state = (userSettings.features && userSettings.features[item.key]) || 'off';
+            
+            const labelHtml = storedUsername === '1234' ? `<span class="user1-icon-label">${escapeAttr(item.name)}</span>` : '';
+            return `<div id="${id}" title="${item.name || ''}" class="${item.class || 'user1-custom-box'} sortable-item" data-state="${state}" draggable="true">${item.html || ''}${labelHtml}</div>`;
+        }).join('');
 
-        .lang-btn {
-            background: #000; border: 1px solid var(--neon-blue); color: #fff;
-            padding: 0 8px; border-radius: 20px; font-size: 8pt; cursor: pointer;
-            position: absolute; top: -10px; right: 10px; z-index: 10; height: 20px;
-        }
+        const rightGroup = document.querySelector('.user1-right-group');
+        if (!rightGroup) return;
 
-        #price1 {
-            margin: 15px 0; padding: 18px 6px 10px;
-            border: 1px solid var(--neon-blue); border-radius: 8px;
-            background: #05161a; position: relative;
-        }
-        #price2 {
-            margin: 0 0 10px 0; padding: 18px 6px 10px;
-            border: 1px solid var(--neon-purple); border-radius: 8px;
-            background: #1a051a; position: relative;
-        }
-        #price1::before, #price2::before {
-            position: absolute; top: -10px; left: 10px; background: #000;
-            padding: 0 5px; font-size: 9pt; color: #fff;
-            font-weight: bold !important; white-space: nowrap;
-        }
-        #price1::before { content: attr(data-title); }
-        #price2::before { content: attr(data-title); }
+        const currentDay = new Date().getDate();
+        const speakerState = userSettings.speakerOn || 'off';
+        const calendarState = userSettings.calendarOn || 'off';
+        const clockState = userSettings.clockOn || 'off';
 
-        .sel-item {
-            display: flex; flex-direction: column; gap: 4px;
-            flex: 1; min-width: 0; border-radius: 6px; padding: 4px;
-        }
-        .sel-label { font-size: 8pt; color: rgba(255,255,255,0.7); padding-left: 2px; }
-        select, input {
-            background: rgba(0,0,0,0.3); color: #fff;
-            border: 1px solid rgba(255,255,255,0.15);
-            padding: 4px; border-radius: 4px; font-size: 10pt;
-            height: 38px; width: 100%; text-align: center; outline: none;
-        }
-        .box-input { border: 1px solid #555; background: #111 !important; }
+        const systemElements = {
+            user1ClockBtn: `<span id="user1ClockStatus" class="user1-clock-inline" title="คลิกเพื่อเปิด/ปิดนาฬิกา" data-state="${clockState}">00:00:00</span>`,
+            user1CalendarBtn: `<div id="user1CalendarTopBtn" class="user1-calendar-top-btn" title="ปฏิทิน" data-state="${calendarState}"><div class="user1-calendar-box">${currentDay}</div></div>`,
+            user1SpeakerBtn: `<div id="user1SpeakerTopBtn" class="user1-speaker-top-btn" title="ลำโพง" data-state="${speakerState}"><svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/><line class="speaker-off-line" x1="2" y1="2" x2="22" y2="22" style="display:${speakerState === 'on' ? 'none' : 'block'};"/></svg></div>`,
+            user1MoreBtn: `<div id="user1MoreTopBtn" class="user1-more-top-btn" title="แก้ไขปุ่มเมนู">⋮</div>`
+        };
 
-        .new-btn {
-            background: #333; border: 1px solid #777; color: #fff;
-            border-radius: 4px; cursor: pointer; padding: 0 10px;
-            height: 38px; font-weight: bold !important;
-        }
-        .new-btn:active { background: #555; }
+        const sysOrder = (userSettings.systemOrder && userSettings.systemOrder.length) ? userSettings.systemOrder : defaultSystemOrder;
+        rightGroup.innerHTML = sysOrder.map(id => systemElements[id] || '').join('');
+    }
 
-        input::-webkit-outer-spin-button,
-        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type=number] { -moz-appearance: textfield; }
+    function toggleMenuEditInline() {
+        let container = document.getElementById('menuEditInlineContainer');
+        if (container) return container.remove();
 
-        input#ref_price {
-            background: #000; color: var(--neon-green);
-            font-weight: bold !important; border: 1px solid var(--neon-green); font-size: 12pt;
-        }
-        input#money {
-            color: var(--neon-green); font-weight: bold !important;
-            font-size: 14pt; border: 1px solid var(--neon-green) !important;
-        }
-        input#real_price {
-            color: var(--neon-red); font-weight: bold !important;
-            font-size: 14pt; border: 1px solid var(--neon-red) !important;
-        }
-        input#liters {
-            color: var(--neon-red); font-weight: bold !important;
-            font-size: 14pt; border: 1px solid var(--neon-red) !important;
-        }
-        input#consume {
-            color: var(--neon-yellow); font-weight: bold !important;
-            font-size: 14pt; border: 1px solid var(--neon-yellow) !important;
-        }
-        input#distance {
-            color: var(--neon-blue); font-weight: bold !important;
-            font-size: 14pt; border: 1px solid var(--neon-blue) !important;
-        }
-        input#location { color: var(--white); border: 1px solid var(--white) !important; }
+        const lineContainer = document.querySelector('.user1-line-container');
+        if (!lineContainer) return;
 
-        .wrapper {
-            width: 100%; overflow: hidden; margin-bottom: 5px;
-            border: 1px solid #333; border-radius: 8px;
-        }
-        .scroll { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        th, td { text-align: center; border: 1px solid #444; padding: 6px 4px; font-size: 10pt; }
-        .group-header-text {
-            font-weight: bold !important; font-size: 12pt !important;
-            text-shadow: 0 0 8px currentColor;
-        }
-        .sticky-col {
-            position: sticky; left: 0; z-index: 10; width: 120px;
-            text-align: center !important; padding: 6px 2px;
-            background: #111; border-right: 1px solid #444;
-        }
-        .active-tag {
-            background: #fff !important; color: #000 !important;
-            font-weight: bold !important; box-shadow: 0 0 10px #fff;
-            border-radius: 4px; padding: 2px 6px; display: inline-block;
-        }
-        .highlight-row { background: rgba(255,255,255,0.08) !important; }
-        .price-tag {
-            cursor: pointer; padding: 2px 6px; border-radius: 4px;
-            min-width: 50px; display: inline-block;
-        }
-        .p-min { color: #00ff00; font-weight: bold !important; }
-        .p-max { color: #ff3131; font-weight: bold !important; }
-
-        .json-box {
-            margin: 20px 0; border: 1px solid var(--neon-blue);
-            border-radius: 8px; background: #0a0a0a; overflow: hidden;
-        }
-        .json-box-header {
-            background: #001a1a; color: var(--neon-blue);
-            padding: 8px 12px; font-size: 9pt;
-            border-bottom: 1px solid var(--neon-blue);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .json-box-header span { color: #888; }
-        .json-box pre {
-            margin: 0; padding: 12px; overflow: auto; max-height: 400px;
-            font-family: Consolas, monospace; font-size: 11px; line-height: 1.4;
-            color: #b0e0b0; white-space: pre-wrap; word-break: break-all;
-        }
-        .badge {
-            display: inline-block; padding: 1px 6px; border-radius: 4px;
-            font-size: 8pt; margin-left: 4px;
-        }
-        .badge-cache { background: #1a3a1a; color: #39ff14; }
-        .badge-live { background: #3a1a1a; color: #ff6b6b; }
-
-        .credit-link {
-            text-align: center; margin: 16px 0 8px; padding: 10px;
-            border-top: 1px solid #333;
-        }
-        .credit-link span { color: #888; font-size: 9pt; }
-        .credit-link a { color: #00f2ff; text-decoration: none; }
-        .credit-link a:hover { text-decoration: underline; }
-    </style>
-</head>
-<body>
-<div class="container">
-    <div id="header"></div>
-    <div id="user1"></div>
-
-    <div id="price1" data-title="ราคาน้ำมัน (<?= htmlspecialchars($source_type) ?>-<?= htmlspecialchars((string)$last_update) ?>)<?= $from_cache ? ' [Cache]' : ' [Live]' ?>">
-        <button class="lang-btn" onclick="toggleLang()" id="btn-lang">Eng</button>
-        <div style="display: flex; gap: 6px; margin-top: 10px;">
-            <div class="sel-item" style="background:#1a1d2e;">
-                <span class="sel-label" data-th="ปั๊ม" data-en="Brand">ปั๊ม</span>
-                <select id="station" onchange="updatePrice(true)">
-                    <option value="">เลือก</option>
-                    <?php foreach ($active_pumps as $id): ?>
-                        <option value="<?= htmlspecialchars($id) ?>"
-                                data-th="<?= htmlspecialchars($station_names[$id]['th']) ?>"
-                                data-en="<?= htmlspecialchars($station_names[$id]['en']) ?>">
-                            <?= htmlspecialchars($station_names[$id]['th']) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="sel-item" style="background:#2e1a2b;">
-                <span class="sel-label" data-th="กลุ่ม" data-en="Group">กลุ่ม</span>
-                <select id="group" onchange="updateOilList(true)">
-                    <option value="">เลือก</option>
-                    <?php foreach ($groups as $k => $v): ?>
-                        <option value="<?= htmlspecialchars($k) ?>"
-                                data-th="<?= htmlspecialchars($v['label']['th']) ?>"
-                                data-en="<?= htmlspecialchars($v['label']['en']) ?>">
-                            <?= htmlspecialchars($v['label']['th']) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="sel-item" style="background:#1a2e1f;">
-                <span class="sel-label" data-th="ชนิด" data-en="Type">ชนิด</span>
-                <select id="oil" onchange="updatePrice(true)"><option value="">เลือก</option></select>
-            </div>
-            <div class="sel-item" style="background:#000;">
-                <span class="sel-label" data-th="ราคากลาง" data-en="Ref. Price">ราคากลาง</span>
-                <input type="text" id="ref_price" readonly placeholder="0">
-            </div>
-        </div>
-    </div>
-
-    <div id="price2" data-title="เติมน้ำมัน">
-        <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-            <div class="sel-item box-input">
-                <span class="sel-label">Date (yyyy-mm-dd)</span>
-                <input type="text" id="date" oninput="autoSave()" placeholder="yyyy-mm-dd">
-            </div>
-            <div class="sel-item box-input">
-                <span class="sel-label">Time (HH:mm)</span>
-                <div style="display: flex; gap: 4px;">
-                    <input type="text" id="time" oninput="autoSave()" placeholder="HH:mm">
-                    <button class="new-btn" onclick="setNew()" title="New Entry">New</button>
-                    <button class="new-btn" onclick="savePriceEntry()" id="btn-save" title="Save Entry">💾</button>
+        container = document.createElement('div');
+        container.id = 'menuEditInlineContainer';
+        container.className = 'menu-inline-section';
+        container.innerHTML = `
+            <div class="menu-inline-header">
+                <h3>ตารางเมนู</h3>
+                <div class="header-actions">
+                    <button class="btn-save-menu" id="saveMenuInline">Save</button>
+                    <button class="btn-clear-menu" id="clearMenuInline">Clear</button>
+                    <button class="btn-inline-close" id="closeMenuInline">×</button>
                 </div>
             </div>
-        </div>
-        <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-            <div class="sel-item" style="background:#222; flex: 2;">
-                <span class="sel-label" data-th="ปั๊ม/สาขา" data-en="Location">ปั๊ม/สาขา</span>
-                <input type="text" id="location" oninput="autoSave()" placeholder="..." style="text-align: left; padding-left: 10px;">
-            </div>
-            <div class="sel-item box-input">
-                <span class="sel-label" data-th="ราคาจริง" data-en="Real Price">ราคาจริง</span>
-                <input type="number" step="0.01" id="real_price" oninput="calc('price')" placeholder="0">
-            </div>
-            <div class="sel-item box-input">
-                <span class="sel-label" data-th="เงินเติม" data-en="Amount">เงินเติม</span>
-                <input type="text" id="money"
-                       onfocus="this.type='number'"
-                       onblur="this.type='text'; this.value=formatAmount(this.value)"
-                       oninput="calc('money')" placeholder="0">
-            </div>
-        </div>
-        <div style="display: flex; gap: 6px;">
-            <div class="sel-item box-input">
-                <span class="sel-label" data-th="ลิตร" data-en="Liters">ลิตร</span>
-                <input type="number" step="0.001" id="liters" oninput="calc('liters')" placeholder="0">
-            </div>
-            <div class="sel-item box-input">
-                <span class="sel-label">km/l</span>
-                <input type="number" step="0.1" id="consume" oninput="calc('consume')" placeholder="0">
-            </div>
-            <div class="sel-item box-input">
-                <span class="sel-label" data-th="ระยะทาง" data-en="Distance">ระยะทาง</span>
-                <input type="number" step="0.1" id="distance" oninput="calc('distance')" placeholder="0">
-            </div>
-        </div>
-    </div>
+            <table class="menu-edit-table"><thead><tr><th>#</th><th>Key</th><th>ชื่อ</th><th>Icon</th><th>JS</th><th>X</th></tr></thead><tbody id="menuTableBody"></tbody></table>
+            <table class="menu-edit-table"><thead><tr><th>#</th><th>Key</th><th>ชื่อ</th><th>Icon</th><th>X</th></tr></thead><tbody id="systemTableBody"></tbody></table>
+        `;
+        lineContainer.insertBefore(container, document.querySelector('.user1-line-2-wrapper')?.nextSibling || null);
 
-    <?php foreach ($groups as $g_key => $cfg): ?>
-    <div class="wrapper" style="border-color: <?= htmlspecialchars($cfg['border']) ?>;">
-        <div class="scroll">
-            <table>
-                <thead>
-                    <tr style="background: <?= htmlspecialchars($cfg['header_bg']) ?>;">
-                        <th class="sticky-col group-header-text"
-                            style="background: <?= htmlspecialchars($cfg['header_bg']) ?>; color: <?= htmlspecialchars($cfg['color']) ?>;"
-                            data-th="<?= htmlspecialchars($cfg['label']['th']) ?>"
-                            data-en="<?= htmlspecialchars($cfg['label']['en']) ?>">
-                            <?= htmlspecialchars($cfg['label']['th']) ?>
-                        </th>
-                        <?php foreach ($active_pumps as $id): ?>
-                            <th data-sid="<?= htmlspecialchars($id) ?>">
-                                <span class="pump-name"
-                                      data-th="<?= htmlspecialchars($station_names[$id]['th']) ?>"
-                                      data-en="<?= htmlspecialchars($station_names[$id]['en']) ?>">
-                                    <?= htmlspecialchars($station_names[$id]['th']) ?>
-                                </span>
-                            </th>
-                        <?php endforeach; ?>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($cfg['items'] as $oil_key => $l_item):
-                        $prices = [];
-                        foreach ($active_pumps as $sid) {
-                            $raw = $stations_data[$sid][$oil_key]['price']
-                                ?? $stations_data[$sid][$oil_key]
-                                ?? 0;
-                            $p = (float) $raw;
-                            if ($p > 0) {
-                                $prices[] = $p;
-                            }
-                        }
-                        $min = $prices ? min($prices) : 0;
-                        $max = $prices ? max($prices) : 0;
-                    ?>
-                    <tr data-oil="<?= htmlspecialchars($oil_key) ?>"
-                        onclick="quickSelect('<?= htmlspecialchars($g_key) ?>', '<?= htmlspecialchars($oil_key) ?>', '')">
-                        <td class="sticky-col"
-                            style="background: <?= htmlspecialchars($cfg['bg']) ?>; text-align: left !important; padding-left: 10px;">
-                            <span class="oil-label"
-                                  data-oil-id="<?= htmlspecialchars($oil_key) ?>"
-                                  data-th="<?= htmlspecialchars($l_item['th']) ?>"
-                                  data-en="<?= htmlspecialchars($l_item['en']) ?>">
-                                <?= htmlspecialchars($l_item['th']) ?>
-                            </span>
-                        </td>
-                        <?php foreach ($active_pumps as $id):
-                            $raw = $stations_data[$id][$oil_key]['price']
-                                ?? $stations_data[$id][$oil_key]
-                                ?? 0;
-                            $p = (float) $raw;
-                            $cls = '';
-                            if ($p > 0 && $min != $max) {
-                                if ($p == $min) {
-                                    $cls = 'p-min';
-                                } elseif ($p == $max) {
-                                    $cls = 'p-max';
-                                }
-                            }
-                        ?>
-                        <td data-sid="<?= htmlspecialchars($id) ?>">
-                            <?php if ($p > 0): ?>
-                                <span class="price-tag <?= $cls ?>"
-                                      data-station="<?= htmlspecialchars($id) ?>"
-                                      data-oil-item="<?= htmlspecialchars($oil_key) ?>"
-                                      onclick="event.stopPropagation(); quickSelect('<?= htmlspecialchars($g_key) ?>', '<?= htmlspecialchars($oil_key) ?>', '<?= htmlspecialchars($id) ?>')">
-                                    <?= number_format($p, 2) ?>
-                                </span>
-                            <?php else: ?>
-                                -
-                            <?php endif; ?>
-                        </td>
-                        <?php endforeach; ?>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <?php endforeach; ?>
+        const tbody = document.getElementById('menuTableBody');
+        const sysTbody = document.getElementById('systemTableBody');
 
-    <div class="json-box">
-        <div class="json-box-header">
-            📄 14.json
-            <span>
-                <?php if ($from_cache): ?>
-                    <span class="badge badge-cache">Cache</span>
-                <?php else: ?>
-                    <span class="badge badge-live">Live</span>
-                <?php endif; ?>
-                <?= file_exists($oil_cache_file) ? number_format(filesize($oil_cache_file)) . ' bytes' : 'ไม่มีไฟล์' ?>
-            </span>
-        </div>
-        <pre><?= htmlspecialchars((string)$rawJson) ?></pre>
-    </div>
+        const createRow = (id = '', key = '', name = '', html = '', script = '') => {
+            const tr = document.createElement('tr');
+            tr.dataset.id = id;
+            tr.innerHTML = `<td class="col-order-no">0</td><td><input type="text" class="inp-key" value="${escapeAttr(key)}"></td><td><input type="text" class="inp-name" value="${escapeAttr(name)}"></td><td><input type="text" class="inp-html" value="${escapeAttr(html)}"></td><td><input type="text" class="inp-script" value="${escapeAttr(script)}"></td><td class="btn-row-delete" title="ลบ">X</td>`;
+            return tr;
+        };
 
-    <div class="credit-link">
-        <span>
-            ข้อมูลราคาน้ำมันจาก
-            <a href="https://gasprice.kapook.com/" target="_blank" rel="noopener noreferrer">
-                gasprice.kapook.com
-            </a>
-        </span>
-    </div>
+        const createSysRow = (id = '', key = '', name = '', html = '') => {
+            const tr = document.createElement('tr');
+            tr.dataset.id = id;
+            tr.innerHTML = `<td class="col-order-no">0</td><td><input type="text" class="inp-sys-key" value="${escapeAttr(key)}" readonly style="color:#888;"></td><td><input type="text" class="inp-sys-name" value="${escapeAttr(name)}"></td><td><input type="text" class="inp-sys-html" value="${escapeAttr(html)}"></td><td class="btn-row-delete" title="ลบ">X</td>`;
+            return tr;
+        };
 
-    <div id="footer"></div>
-</div>
-
-<script>
-const oilData = <?= json_encode($stations_data, JSON_UNESCAPED_UNICODE) ?>;
-const groupsInfo = <?= json_encode($groups, JSON_UNESCAPED_UNICODE) ?>;
-const currentUser = localStorage.getItem('username') || 'u_guest';
-let currentLang = localStorage.getItem('lang') || 'th';
-let saveTimeout = null;
-
-function formatAmount(val) {
-    let n = parseFloat(val);
-    if (isNaN(n) || n === 0) return '0';
-    return n % 1 === 0 ? n.toString() : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
-}
-
-function autoSave() {
-    if (saveTimeout) clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(save, 700);
-}
-
-function save() {
-    const fD = new FormData();
-    fD.append('action', 'save_pref');
-    fD.append('user', currentUser);
-    ['group','oil','station','ref_price','real_price','money','liters','consume','distance','location','date','time'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) fD.append(id, el.value || '');
-    });
-    fetch(window.location.href, { method: 'POST', body: fD }).catch(() => {});
-}
-
-async function savePriceEntry() {
-    const btn = document.getElementById('btn-save');
-    const original = btn.innerHTML;
-    btn.innerHTML = '⏳';
-    btn.disabled = true;
-    const fD = new FormData();
-    fD.append('action', 'save_pref');
-    fD.append('user', currentUser);
-    fD.append('save_type', 'price1');
-    ['group','oil','station','ref_price','real_price','money','liters','consume','distance','location','date','time'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) fD.append(id, el.value || '');
-    });
-    try {
-        const res = await fetch(window.location.href, { method: 'POST', body: fD });
-        const result = await res.json();
-        btn.innerHTML = (result.status === 'saved') ? '✅' : '❌';
-        setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 1200);
-    } catch (e) {
-        btn.innerHTML = '❌';
-        setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 1500);
-    }
-}
-
-function setNew() {
-    const now = new Date();
-    const localNow = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
-    document.getElementById('date').value = localNow.toISOString().split('T')[0];
-    document.getElementById('time').value =
-        String(localNow.getHours()).padStart(2, '0') + ':' +
-        String(localNow.getMinutes()).padStart(2, '0');
-    document.getElementById('real_price').value = document.getElementById('ref_price').value || '';
-    autoSave();
-}
-
-function applyLang() {
-    document.getElementById('btn-lang').innerText = (currentLang === 'th') ? 'Eng' : 'ไทย';
-    document.querySelectorAll('[data-th]').forEach(el => {
-        const val = el.getAttribute('data-' + currentLang);
-        if (val) {
-            if (el.tagName === 'OPTION') el.text = val;
-            else el.innerText = val;
-        }
-    });
-}
-
-function updateOilList(shouldSave = true, targetOil = "") {
-    const gK = document.getElementById('group').value;
-    const oS = document.getElementById('oil');
-    oS.innerHTML = `<option value="">${currentLang === 'th' ? 'เลือก' : 'Select'}</option>`;
-    if (gK && groupsInfo[gK]) {
-        for (let k in groupsInfo[gK].items) {
-            let opt = document.createElement('option');
-            opt.value = k;
-            opt.text = groupsInfo[gK].items[k][currentLang];
-            if (k === targetOil) opt.selected = true;
-            oS.add(opt);
-        }
-    }
-    if (shouldSave) updatePrice(true);
-}
-
-function updatePrice(shouldSave = true) {
-    const o = document.getElementById('oil').value;
-    const s = document.getElementById('station').value;
-    document.querySelectorAll('.highlight-row, .active-tag').forEach(el => {
-        el.classList.remove('highlight-row', 'active-tag');
-    });
-    if (o) {
-        document.querySelectorAll(`tr[data-oil="${o}"]`).forEach(tr => {
-            tr.classList.add('highlight-row');
-            const label = tr.querySelector('.oil-label');
-            if (label) label.classList.add('active-tag');
-        });
-        if (s) {
-            const headPump = document.querySelector(`th[data-sid="${s}"] .pump-name`);
-            if (headPump) headPump.classList.add('active-tag');
-            const priceTag = document.querySelector(`.price-tag[data-station="${s}"][data-oil-item="${o}"]`);
-            if (priceTag) priceTag.classList.add('active-tag');
-            if (oilData[s]) {
-                let p = (typeof oilData[s][o] === 'object')
-                    ? (oilData[s][o].price ?? 0)
-                    : (oilData[s][o] ?? 0);
-                document.getElementById('ref_price').value = parseFloat(p).toFixed(2);
-            }
-        }
-    }
-    if (shouldSave) autoSave();
-}
-
-function calc(trigger) {
-    const rP = parseFloat(document.getElementById('real_price').value) || 0;
-    const money = parseFloat(document.getElementById('money').value) || 0;
-    const lIn = parseFloat(document.getElementById('liters').value) || 0;
-    const cS = parseFloat(document.getElementById('consume').value) || 0;
-    const dIn = parseFloat(document.getElementById('distance').value) || 0;
-
-    if (trigger === 'money' || trigger === 'price') {
-        if (money > 0 && rP > 0) {
-            const cL = money / rP;
-            document.getElementById('liters').value = cL.toFixed(3);
-            if (cS > 0) document.getElementById('distance').value = (cL * cS).toFixed(1);
-        }
-    } else if (trigger === 'liters') {
-        if (lIn > 0 && rP > 0) {
-            document.getElementById('money').value = (lIn * rP).toFixed(2);
-            if (cS > 0) document.getElementById('distance').value = (lIn * cS).toFixed(1);
-        }
-    } else if (trigger === 'distance') {
-        if (dIn > 0 && cS > 0) {
-            const cL = dIn / cS;
-            document.getElementById('liters').value = cL.toFixed(3);
-            if (rP > 0) document.getElementById('money').value = (cL * rP).toFixed(2);
-        }
-    } else if (trigger === 'consume') {
-        const cL = parseFloat(document.getElementById('liters').value) || 0;
-        if (cL > 0 && cS > 0) document.getElementById('distance').value = (cL * cS).toFixed(1);
-    }
-    autoSave();
-}
-
-function quickSelect(gK, oK, sI) {
-    document.getElementById('group').value = gK;
-    updateOilList(false, oK);
-    if (sI) document.getElementById('station').value = sI;
-    updatePrice(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function toggleLang() {
-    currentLang = (currentLang === 'th') ? 'en' : 'th';
-    localStorage.setItem('lang', currentLang);
-    applyLang();
-    updateOilList(false, document.getElementById('oil').value);
-}
-
-async function load() {
-    const now = new Date();
-    const localNow = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
-    const todayStr = localNow.toISOString().split('T')[0];
-    const timeStr = String(localNow.getHours()).padStart(2, '0') + ':' +
-                    String(localNow.getMinutes()).padStart(2, '0');
-
-    document.getElementById('date').value = todayStr;
-    document.getElementById('time').value = timeStr;
-
-    try {
-        const res = await fetch(`users/${currentUser}/14/14.json?t=${Date.now()}`);
-        if (res.ok) {
-            const d = await res.json();
-            const todayData = d.price1?.[todayStr] || d.price?.[todayStr];
-            if (todayData) {
-                document.getElementById('group').value = todayData.group || "";
-                updateOilList(false, todayData.oil || "");
-                document.getElementById('station').value = todayData.station || "";
-                document.getElementById('date').value = todayData.date || todayStr;
-                document.getElementById('time').value = todayData.time || timeStr;
-                ['money','real_price','liters','consume','distance','location'].forEach(k => {
-                    const el = document.getElementById(k);
-                    if (el) {
-                        el.value = (k === 'money')
-                            ? formatAmount(todayData[k] || 0)
-                            : (todayData[k] || "");
-                    }
+        const reindex = () => {
+            [tbody, sysTbody].forEach(b => {
+                let n = 1;
+                b.querySelectorAll('tr').forEach(r => {
+                    if (r.style.display !== 'none') r.querySelector('.col-order-no').innerText = n++;
                 });
-            }
-        }
-    } catch (e) {}
-    setTimeout(() => updatePrice(true), 800);
-}
+            });
+        };
 
-(function () {
-    applyLang();
-    load();
+        (userSettings.iconOrder || []).forEach(id => {
+            const item = iconConfigs[id];
+            if (item) tbody.appendChild(createRow(id, item.key, item.name, item.html, item.script));
+        });
+        tbody.appendChild(createRow());
+
+        (userSettings.systemOrder?.length ? userSettings.systemOrder : defaultSystemOrder).forEach(id => {
+            const item = systemConfigs[id];
+            if (item) sysTbody.appendChild(createSysRow(id, item.key, item.name, item.html));
+        });
+        reindex();
+
+        tbody.addEventListener('input', e => {
+            if (!e.target.classList.contains('inp-key')) return;
+            const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.style.display !== 'none');
+            if (e.target.closest('tr') === rows[rows.length - 1] && e.target.value.trim() !== '') {
+                tbody.appendChild(createRow());
+                reindex();
+            }
+        });
+
+        container.addEventListener('click', e => {
+            if (e.target.classList.contains('btn-row-delete')) {
+                e.target.closest('tr').style.display = 'none';
+                reindex();
+            }
+            if (e.target.id === 'closeMenuInline') container.remove();
+        });
+
+        const bindTableDrag = tableBody => {
+            let dragRow = null, pointerId = null, timer = null, dragging = false, startX = 0, startY = 0;
+            const clearDrag = () => {
+                if (timer) { clearTimeout(timer); timer = null; }
+                if (dragRow) dragRow.classList.remove('menu-row-dragging');
+                tableBody.querySelectorAll('.menu-row-drag-over').forEach(r => r.classList.remove('menu-row-drag-over'));
+                dragRow = null; dragging = false; pointerId = null;
+            };
+
+            tableBody.addEventListener('pointerdown', ev => {
+                const handle = ev.target.closest('.col-order-no');
+                if (!handle) return;
+                const row = handle.closest('tr');
+                if (!row) return;
+                pointerId = ev.pointerId; startX = ev.clientX; startY = ev.clientY;
+                if (ev.pointerType === 'touch') {
+                    timer = setTimeout(() => { dragRow = row; dragging = true; row.classList.add('menu-row-dragging'); row.setPointerCapture?.(pointerId); }, 700);
+                } else {
+                    dragRow = row; dragging = true; row.classList.add('menu-row-dragging'); row.setPointerCapture?.(pointerId);
+                }
+                ev.preventDefault();
+            }, { passive: false });
+
+            tableBody.addEventListener('pointermove', ev => {
+                if (!dragRow || !dragging) {
+                    if (timer && ev.pointerType === 'touch' && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 8) { clearTimeout(timer); timer = null; }
+                    return;
+                }
+                const rows = Array.from(tableBody.querySelectorAll('tr')).filter(r => r !== dragRow && r.style.display !== 'none');
+                let target = rows.find(row => ev.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2);
+                tableBody.querySelectorAll('.menu-row-drag-over').forEach(r => r.classList.remove('menu-row-drag-over'));
+                if (target) {
+                    target.classList.add('menu-row-drag-over');
+                    tableBody.insertBefore(dragRow, target);
+                } else {
+                    tableBody.appendChild(dragRow);
+                }
+                reindex();
+                ev.preventDefault();
+            }, { passive: false });
+
+            tableBody.addEventListener('pointerup', () => {
+                if (dragging && dragRow && tableBody === tbody) {
+                    userSettings.iconOrder = Array.from(tbody.querySelectorAll('tr')).filter(r => r.style.display !== 'none').map(r => r.dataset.id).filter(Boolean);
+                }
+                clearDrag();
+            });
+            tableBody.addEventListener('pointercancel', clearDrag);
+        };
+
+        bindTableDrag(tbody);
+        bindTableDrag(sysTbody);
+
+        document.getElementById('saveMenuInline').onclick = async () => {
+            const newOrderList = [];
+            userSettings.customIcons = {};
+
+            tbody.querySelectorAll('tr').forEach(row => {
+                if (row.style.display === 'none') return;
+                const key = row.querySelector('.inp-key')?.value.trim() || '';
+                const name = row.querySelector('.inp-name')?.value.trim() || '';
+                const htmlVal = row.querySelector('.inp-html')?.value.trim() || '';
+                const scriptVal = row.querySelector('.inp-script')?.value.trim() || '';
+                if (!key && !name) return;
+
+                const id = row.dataset.id || `custom_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                let customHtml = htmlVal || iconConfigs[id]?.html || '';
+
+                if (/^https?:\/\//i.test(htmlVal) || (/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(htmlVal) && !htmlVal.startsWith('<'))) {
+                    customHtml = `<img src="${escapeAttr(htmlVal)}" alt="${escapeAttr(name)}">`;
+                } else if (!customHtml) {
+                    customHtml = `<span class="custom-symbol">${escapeAttr(key.substring(0, 2).toUpperCase())}</span>`;
+                }
+
+                registerCustomIconConfig(id, { key, name: name || key, script: scriptVal, html: customHtml });
+                userSettings.customIcons[id] = { key, name: name || key, html: customHtml, script: scriptVal };
+                newOrderList.push(id);
+            });
+
+            userSettings.iconOrder = newOrderList;
+            userSettings.systemOrder = Array.from(sysTbody.querySelectorAll('tr')).filter(r => r.style.display !== 'none').map(r => {
+                const id = r.dataset.id;
+                if (id && systemConfigs[id]) {
+                    const name = r.querySelector('.inp-sys-name')?.value.trim();
+                    const html = r.querySelector('.inp-sys-html')?.value.trim();
+                    if (name) systemConfigs[id].name = name;
+                    if (html) systemConfigs[id].html = html;
+                }
+                return id;
+            }).filter(Boolean);
+
+            await saveSettings();
+            renderIcons();
+            container.remove();
+            if (window.speaker === 1) window.speakText('บันทึกการตั้งค่าเมนูเรียบร้อย');
+        };
+
+        document.getElementById('clearMenuInline').onclick = async () => {
+            if (!confirm('คุณต้องการเรียกค่าเริ่มต้นกลับมาทั้งหมดใช่หรือไม่?')) return;
+            userSettings.iconOrder = [...defaultOrder];
+            userSettings.systemOrder = [...defaultSystemOrder];
+            userSettings.customIcons = {};
+            await saveSettings();
+            renderIcons();
+            container.remove();
+            if (window.speaker === 1) window.speakText('เรียกค่าเริ่มต้นเรียบร้อย');
+        };
+    }
+
+    async function initUser1() {
+        await loadSettings();
+        injectStyles();
+
+        const container = document.getElementById('user1');
+        if (!container) return;
+
+        userSettings.iconOrder = Array.from(new Set([...(userSettings.iconOrder || []), ...defaultOrder])).filter(id => iconConfigs[id]);
+        if (!userSettings.systemOrder?.length) userSettings.systemOrder = [...defaultSystemOrder];
+        
+        if (storedUsername === '1234') {
+            userSettings.findBoxOn = 'on';
+        } else if (!userSettings.findBoxOn) {
+            userSettings.findBoxOn = 'on';
+        }
+
+        if (!userSettings.usernameDisplayOn) userSettings.usernameDisplayOn = 'off';
+
+        features.forEach(f => window[f] = userSettings.features?.[f] === 'on' ? 1 : 0);
+        window.speaker = userSettings.speakerOn === 'on' ? 1 : 0;
+
+        const findBoxDisplay = userSettings.findBoxOn === 'on' ? 'flex' : 'none';
+        const toggleBtnDisplay = storedUsername === '1234' ? 'none' : 'flex';
+        const usernameDisplayState = userSettings.usernameDisplayOn;
+        const usernameTextDisplay = usernameDisplayState === 'on' ? 'inline' : 'none';
+
+        const displayText = `${escapeAttr(storedUsername)} (${userRole})`;
+        const user1324Class = storedUsername === '1234' ? 'user1-username-1234' : '';
+
+        // ถ้าเป็น username 1234 ให้ใส่คลาส 'no-click'
+        const noClickClass = storedUsername === '1234' ? 'no-click' : '';
+
+        container.innerHTML = `
+            <div class="user1-line-container ${user1324Class}">
+                <div class="user1-line-1">
+                    <div class="user1-line-left-group">
+                        <span id="user1UsernameDisplay" class="user1-line-left ${noClickClass}" title="คลิกเปิด/ปิดหน้าผู้ใช้ | คลิกขวาเพื่อ Logout" data-state="${usernameDisplayState}">
+                            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        </span>
+                        <span id="user1UsernameText" class="user1-username-text ${noClickClass}" style="display:${usernameTextDisplay};" title="คลิกเปิด/ปิดหน้าผู้ใช้ | คลิกขวาเพื่อ Logout">${displayText}</span>
+                        <div id="user1ToggleFindBtn" class="user1-toggle-find-btn" style="display:${toggleBtnDisplay};" title="ซ่อน/แสดงช่องค้นหา" data-state="${userSettings.findBoxOn}">
+                            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </div>
+                    </div>
+                    <span class="user1-right-group"></span>
+                </div>
+                <div class="user1-line-2-wrapper"><div class="user1-line-2"><div id="sortableContainer" class="user1-left-group"></div></div></div>
+                <div class="user1-line-find" style="display:${findBoxDisplay};"><input type="text" id="user1FindInput" class="user1-find-input" placeholder="ค้นหา..."></div>
+                <div id="user2"></div>
+            </div>
+            <div id="user1ContextMenu" class="user1-context-menu">
+                <div id="user1LogoutBtn" class="user1-context-item">Logout</div>
+            </div>
+        `;
+
+        renderIcons();
+        applyUserIframeState();
+
+        setInterval(() => {
+            const clockEl = document.getElementById('user1ClockStatus');
+            if (clockEl) clockEl.innerText = new Date().toLocaleTimeString('th-TH', { hour12: false });
+        }, 1000);
+
+        const sortableContainer = document.getElementById('sortableContainer');
+        const findInput = document.getElementById('user1FindInput');
+        const toggleFindBtn = document.getElementById('user1ToggleFindBtn');
+        const findBoxContainer = document.querySelector('.user1-line-find');
+        const usernameDisplayEl = document.getElementById('user1UsernameDisplay');
+        const usernameTextEl = document.getElementById('user1UsernameText');
+        const contextMenu = document.getElementById('user1ContextMenu');
+        const logoutBtn = document.getElementById('user1LogoutBtn');
+
+        const showContextMenu = (e) => {
+            e.preventDefault();
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = `${e.pageX}px`;
+            contextMenu.style.top = `${e.pageY}px`;
+        };
+
+        usernameDisplayEl?.addEventListener('contextmenu', showContextMenu);
+        usernameTextEl?.addEventListener('contextmenu', showContextMenu);
+
+        window.addEventListener('click', () => {
+            if (contextMenu) contextMenu.style.display = 'none';
+        });
+
+        logoutBtn?.addEventListener('click', () => {
+            window.location.href = 'logout.php';
+        });
+
+        // เฉพาะผู้ใช้ที่ไม่ใช่ 1234 ถึงจะคลิกเพื่อ Toggle Iframe ได้
+        if (storedUsername !== '1234') {
+            usernameDisplayEl?.addEventListener('click', toggleUserIframe);
+            usernameTextEl?.addEventListener('click', toggleUserIframe);
+        }
+
+        toggleFindBtn?.addEventListener('click', () => {
+            if (storedUsername === '1234') return;
+
+            userSettings.findBoxOn = userSettings.findBoxOn === 'on' ? 'off' : 'on';
+            toggleFindBtn.dataset.state = userSettings.findBoxOn;
+            
+            if (findBoxContainer) {
+                findBoxContainer.style.display = userSettings.findBoxOn === 'on' ? 'flex' : 'none';
+            }
+
+            if (userSettings.findBoxOn === 'off') {
+                if (typeof window.stopFind1 === 'function') {
+                    window.stopFind1();
+                } else {
+                    document.getElementById('find1-container')?.remove();
+                }
+            }
+
+            saveSettings();
+        });
+
+        findInput?.addEventListener('focus', () => loadScript('find', () => window.initFind1?.()));
+        findInput?.addEventListener('input', e => { userSettings.findQuery = e.target.value; saveSettings(); loadScript('find', () => window.initFind1?.()); });
+        findInput?.addEventListener('keypress', e => {
+            if (e.key !== 'Enter' || userSettings.googleOn !== 'on') return;
+            const query = e.target.value.trim();
+            if (!query) return;
+            const engine = userSettings.searchEngine || 'google';
+            let url = engine === 'youtube' ? 'https://www.youtube.com/results?search_query=' + encodeURIComponent(query) :
+                      (engine === 'map' || query.startsWith('ไป')) ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query.startsWith('ไป') ? query.replace(/^ไป/, '').trim() : query) :
+                      'https://www.google.com/search?q=' + encodeURIComponent(query);
+            window.open(url, '_blank');
+        });
+
+        sortableContainer.addEventListener('click', e => {
+            const el = e.target.closest('.sortable-item');
+            if (!el) return;
+            const handler = iconConfigs[el.id];
+            if (!handler) return;
+
+            const newState = el.dataset.state === 'off' ? 'on' : 'off';
+            el.dataset.state = newState;
+            if (!userSettings.features) userSettings.features = {};
+            userSettings.features[handler.key] = newState;
+            window[handler.key] = newState === 'on' ? 1 : 0;
+            saveSettings();
+
+            if (window.speaker === 1) window.speakText(`${newState === 'on' ? 'เปิด' : 'ปิด'}${handler.name}`);
+            if (newState === 'on') loadScript(handler.script, () => handler.init());
+            else { handler.stop?.(); if (handler.script) document.getElementById(handler.script + '-container')?.remove(); }
+        });
+
+        let draggedItem = null;
+        sortableContainer.addEventListener('dragstart', e => { draggedItem = e.target.closest('.sortable-item'); draggedItem?.classList.add('dragging'); });
+        sortableContainer.addEventListener('dragend', () => { draggedItem?.classList.remove('dragging'); userSettings.iconOrder = Array.from(sortableContainer.children).map(c => c.id); saveSettings(); draggedItem = null; });
+        sortableContainer.addEventListener('dragover', e => {
+            e.preventDefault();
+            if (!draggedItem) return;
+            const after = [...sortableContainer.querySelectorAll('.sortable-item:not(.dragging)')].reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = e.clientX - box.left - box.width / 2;
+                return (offset < 0 && offset > closest.offset) ? { offset, element: child } : closest;
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+            if (after == null) sortableContainer.appendChild(draggedItem);
+            else sortableContainer.insertBefore(draggedItem, after);
+        });
+
+        document.querySelector('.user1-right-group').addEventListener('click', e => {
+            if (e.target.closest('#user1ClockStatus')) {
+                const state = userSettings.clockOn === 'on' ? 'off' : 'on';
+                systemConfigs.user1ClockBtn[state === 'on' ? 'init' : 'stop']();
+            } else if (e.target.closest('#user1CalendarTopBtn')) {
+                const state = userSettings.calendarOn === 'on' ? 'off' : 'on';
+                systemConfigs.user1CalendarBtn[state === 'on' ? 'init' : 'stop']();
+            } else if (e.target.closest('#user1SpeakerTopBtn')) {
+                const state = userSettings.speakerOn === 'on' ? 'off' : 'on';
+                systemConfigs.user1SpeakerBtn[state === 'on' ? 'init' : 'stop']();
+            } else if (e.target.closest('#user1MoreTopBtn')) {
+                toggleMenuEditInline();
+            }
+        });
+
+        features.forEach(f => {
+            if (userSettings.features?.[f] === 'on') {
+                const handler = Object.values(iconConfigs).find(h => h.key === f);
+                if (handler) loadScript(handler.script, () => handler.init());
+            }
+        });
+
+        if (userSettings.calendarOn === 'on') loadScript('calendar', () => window.initCalendar1?.());
+    }
+
+    document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', initUser1) : initUser1();
 })();
 </script>
-<?php
-if (file_exists(__DIR__ . '/jsUser1.php')) {
-    include 'jsUser1.php';
-}
-$programName = "OIL Manager";
-if (file_exists(__DIR__ . '/jsHF.php')) {
-    include 'jsHF.php';
-}
-?>
-</body>
-</html>
