@@ -18,25 +18,26 @@
 
     console.log('User Role:', userRole);
 
-    const features = ['gps', 'radar', 'saveone', 'youtube', 'data', 'menu', 'admin'];
+    const features = ['gps', 'radar', 'rain', 'saveone', 'youtube', 'data', 'menu', 'admin'];
     let userSettings = {
         iconOrder: [], features: {}, clockOn: 'off', calendarOn: 'off',
-        speakerOn: 'off', googleOn: 'on', findBoxOn: 'on', usernameDisplayOn: 'off', customIcons: [], systemOrder: [],
+        speakerOn: 'off', googleOn: 'on', findBoxOn: 'on', usernameDisplayOn: 'off', customIcons: {}, systemOrder: [],
         findQuery: '', searchEngine: 'google'
     };
 
-    // --- กรองรายการ Default Order ตาม Username (เอา rain ออกแล้ว) ---
-    const allDefaultOrder = ['user1GpsBtn', 'user1RadarBtn', 'user1SaveoneBtn', 'user1YoutubeBtn', 'user1DataBtn', 'user1MenuBtn', 'user1AdminBtn'];
+    // --- กรองรายการ Default Order ตาม Username ---
+    const allDefaultOrder = ['user1GpsBtn', 'user1RadarBtn', 'user1RainBtn', 'user1SaveoneBtn', 'user1YoutubeBtn', 'user1DataBtn', 'user1MenuBtn', 'user1AdminBtn'];
     const defaultOrder = storedUsername === '0956820142' 
         ? allDefaultOrder 
-        : ['user1YoutubeBtn', 'user1RadarBtn'];
+        : ['user1RainBtn', 'user1YoutubeBtn', 'user1RadarBtn'];
 
     const defaultSystemOrder = ['user1ClockBtn', 'user1CalendarBtn', 'user1SpeakerBtn', 'user1MoreBtn'];
 
-    // --- รายการ Master Icon Configs ทั้งหมด (ตัด rain ออกแล้ว) ---
+    // --- รายการ Master Icon Configs ทั้งหมด ---
     const allIconConfigs = {
         user1GpsBtn: { key: 'gps', name: 'จีพีเอส', script: 'gps', init: () => (window.initGps1 || window.initGpsTracker || window.startGps1)?.(), stop: () => (window.stopGps1 || window.stopGpsTracker)?.(), html: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><g id="gps-icon-group"><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/><circle cx="12" cy="12" r="3"/></g></svg>', class: 'user1-gps-box' },
         user1RadarBtn: { key: 'radar', name: 'เรดาร์', script: 'radar', init: () => (window.initRadar1 || window.startRadar1)?.(), stop: () => window.stopRadar1?.(), html: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/><g id="radar-icon-group"><line x1="12" y1="12" x2="19" y2="5"/></g></svg>', class: 'user1-radar-box' },
+        user1RainBtn: { key: 'rain', name: 'พยากรณ์ฝน', script: 'rain', init: () => (window.initRain1 || window.startRain1)?.(), stop: () => window.stopRain1?.(), html: '<svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4C9.11 4 6.6 5.64 5.35 8.04C2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/><g class="rain-drops"><line x1="7" y1="14" x2="6" y2="19"/><line x1="12" y1="14" x2="11" y2="19"/><line x1="17" y1="14" x2="16" y2="19"/></g></svg>', class: 'user1-rain-box' },
         user1SaveoneBtn: { key: 'saveone', name: 'เซฟวัน', script: 'saveone', init: () => (window.initSaveone1 || window.startSaveone1)?.(), stop: () => window.stopSaveone1?.(), html: '<div class="so-symbol-wrapper"><span class="so-sg">SG</span><span class="so-text">Save</span><span class="so-one">One</span></div>', class: 'user1-saveone-box' },
         user1YoutubeBtn: { key: 'youtube', name: 'Youtube', script: 'youtube', init: () => (window.initYoutube1 || window.initYoutubeTracker || window.startYoutube1)?.(), stop: () => (window.stopYoutube1 || window.stopYoutubeTracker)?.(), html: '<svg viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>', class: 'user1-youtube-btn-box' },
         user1DataBtn: { key: 'data', name: 'บัญชี', script: 'data', init: () => (window.initData1 || window.startData1)?.(), stop: () => window.stopData1?.(), html: '<div class="db-symbol-wrapper"><span class="db-text">DB</span><span class="data-text">Data</span></div>', class: 'user1-data-box' },
@@ -44,11 +45,12 @@
         user1AdminBtn: { key: 'admin', name: 'แอดมิน', script: 'admin', init: () => (window.initAdmin1 || window.startAdmin1)?.(), stop: () => window.stopAdmin1?.(), html: '<div class="ad-symbol-wrapper"><span class="ad-text">AD</span><span class="admin-text">admin</span></div>', class: 'user1-admin-box' }
     };
 
-    // --- กรอง iconConfigs ที่เปิดให้ใช้งานตาม Username (ตัด rain ออกแล้ว) ---
+    // --- กรอง iconConfigs ที่เปิดให้ใช้งานตาม Username ---
     const iconConfigs = {};
     if (storedUsername === '0956820142') {
         Object.assign(iconConfigs, allIconConfigs);
     } else {
+        iconConfigs.user1RainBtn = allIconConfigs.user1RainBtn;
         iconConfigs.user1YoutubeBtn = allIconConfigs.user1YoutubeBtn;
         iconConfigs.user1RadarBtn = allIconConfigs.user1RadarBtn;
     }
@@ -204,7 +206,7 @@
             .sortable-item{width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none;flex-shrink:0;user-select:none;}
             .sortable-item img{width:24px;height:24px;object-fit:contain;}
             .dragging{opacity:.4;transform:scale(.9);}
-            .user1-gps-box svg,.user1-radar-box svg,.user1-speaker-top-btn svg,.user1-custom-box svg,.user1-clock-box svg,.user1-calendar-box-system svg,.user1-speaker-box svg{fill:none;stroke:#777;stroke-width:2.5;width:24px;height:24px;}
+            .user1-gps-box svg,.user1-radar-box svg,.user1-rain-box svg,.user1-speaker-top-btn svg,.user1-custom-box svg,.user1-clock-box svg,.user1-calendar-box-system svg,.user1-speaker-box svg{fill:none;stroke:#777;stroke-width:2.5;width:24px;height:24px;}
             .user1-youtube-btn-box svg{fill:#777;stroke:none;width:24px;height:24px;}
             [data-state="on"] svg{stroke:#a9e34b !important;}
             .user1-youtube-btn-box[data-state="on"] svg{fill:#ff0000 !important;}
@@ -263,6 +265,8 @@
             #user1SaveoneBtn[data-state="on"] .so-text,#user1SaveoneBtn[data-state="on"] .so-one{opacity:1;transform:scale(1);color:#a9e34b !important;}
             @keyframes spin{100%{transform:rotate(360deg);}}
             #user1GpsBtn[data-state="on"] #gps-icon-group,#user1RadarBtn[data-state="on"] #radar-icon-group{animation:spin 2.5s linear infinite;transform-origin:12px 12px;}
+            @keyframes fallRain{0%{transform:translateY(0);opacity:.3;}50%{transform:translateY(2.5px);opacity:1;}100%{transform:translateY(0);opacity:.3;}}
+            #user1RainBtn[data-state="on"] .rain-drops{animation:fallRain .6s ease-in-out infinite;}
             @keyframes youtubePlayPulse{0%{transform:scale(1);}50%{transform:scale(1.12);}100%{transform:scale(1);}}
             #user1YoutubeBtn[data-state="on"]{animation:youtubePlayPulse 1.2s ease-in-out infinite;}
             .user1-clock-inline{font-size:14px;color:#fff;font-family:monospace;font-weight:bold;cursor:pointer;padding:2px 5px;}
@@ -358,6 +362,7 @@
     }
 
     function toggleUserIframe() {
+        // หากเป็น username 1234 ป้องกันไม่ให้เปิด/ปิด iframe
         if (storedUsername === '1234') return;
 
         userSettings.usernameDisplayOn = userSettings.usernameDisplayOn === 'on' ? 'off' : 'on';
@@ -615,6 +620,8 @@
 
         const displayText = `${escapeAttr(storedUsername)} (${userRole})`;
         const user1324Class = storedUsername === '1234' ? 'user1-username-1234' : '';
+
+        // ถ้าเป็น username 1234 ให้ใส่คลาส 'no-click'
         const noClickClass = storedUsername === '1234' ? 'no-click' : '';
 
         container.innerHTML = `
@@ -675,6 +682,7 @@
             window.location.href = 'logout.php';
         });
 
+        // เฉพาะผู้ใช้ที่ไม่ใช่ 1234 ถึงจะคลิกเพื่อ Toggle Iframe ได้
         if (storedUsername !== '1234') {
             usernameDisplayEl?.addEventListener('click', toggleUserIframe);
             usernameTextEl?.addEventListener('click', toggleUserIframe);
