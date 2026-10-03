@@ -26,20 +26,24 @@ cat > "$HOME/start.sh" <<'EOF'
 
 clear
 
-(
-    NO="1"
-    FILE="update$NO.sh"
-
-    curl -fsSL \
-    "https://raw.githubusercontent.com/serikrong/termux/main/$FILE" \
-    -o "$HOME/$FILE" && \
-
-    if grep -q $'\r' "$HOME/$FILE"; then
-        sed -i 's/\r$//' "$HOME/$FILE"
-    fi && \
-
-    bash "$HOME/$FILE"
-)
+# =========================================================
+# หมายเหตุ: ปิดส่วนอัปเดตสคริปต์อัตโนมัติจาก GitHub (update1.sh)
+# =========================================================
+# (
+#     NO="1"
+#     FILE="update$NO.sh"
+# 
+#     curl -fsSL \
+#     "https://raw.githubusercontent.com/serikrong/termux/main/$FILE" \
+#     -o "$HOME/$FILE" && \
+# 
+#     if grep -q $'\r' "$HOME/$FILE"; then
+#         sed -i 's/\r$//' "$HOME/$FILE"
+#     fi && \
+# 
+#     bash "$HOME/$FILE"
+# )
+# =========================================================
 
 WEB="/storage/emulated/0/@php"
 TMP="$HOME/tmp"
