@@ -4,7 +4,7 @@ echo ""
 
 pkg update -y && \
 pkg upgrade -y && \
-pkg install -y php mariadb zip unzip curl && \
+pkg install -y php php-gd mariadb zip unzip curl && \
 termux-setup-storage <<EOF
 y
 EOF
